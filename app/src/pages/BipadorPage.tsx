@@ -19,6 +19,7 @@ export default function BipadorPage() {
   const streamRef = useRef<MediaStream | null>(null)
   const animFrameRef = useRef<number>(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const lastProcessedRef = useRef<string>('')
 
   useEffect(() => {
     setCameraSupported('BarcodeDetector' in window)
@@ -62,9 +63,18 @@ export default function BipadorPage() {
   }
 
   async function handleCodigoSubmitValor(valor: string) {
-    if (!valor.trim()) return
-    const nfeExtraida = normalizarNfe(valor.trim())
-    const item = encontrarItem(valor.trim())
+    const cleanValor = valor.trim()
+    if (!cleanValor) return
+
+    // Evita processar o mesmo código repetidamente (duplo disparo)
+    if (lastProcessedRef.current === cleanValor) return
+    lastProcessedRef.current = cleanValor
+    setTimeout(() => {
+      if (lastProcessedRef.current === cleanValor) lastProcessedRef.current = ''
+    }, 1000)
+
+    const nfeExtraida = normalizarNfe(cleanValor)
+    const item = encontrarItem(cleanValor)
     if (item) {
       await biparItem(item, nfeExtraida)
     } else {
@@ -181,9 +191,15 @@ export default function BipadorPage() {
                 if (ehChaveCompleta(val)) setTimeout(() => { handleCodigoSubmitValor(val) }, 0)
               }}
               onKeyDown={e => {
-                if (e.key !== 'Enter' || !codigoInput.trim()) return
-                // Evita confirmação dupla quando a chave completa já disparou pelo onChange
-                if (!ehChaveCompleta(codigoInput)) handleCodigoSubmit()
+                if (e.key !== 'Enter') return
+                const val = e.currentTarget.value.trim()
+                if (!val) return
+                e.preventDefault()
+                // Se for menor/igual a 9 dígitos ou exatamente 44 dígitos, processa.
+                // Tamanhos intermediários (chave parcial) são descartados para evitar lixo.
+                if (val.length <= 9 || val.length === 44) {
+                  handleCodigoSubmitValor(val)
+                }
               }}
               placeholder="Digite ou escaneie o código de barras da NF-e"
               style={{ flex: 1 }}

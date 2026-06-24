@@ -12,10 +12,10 @@
 // ou seja: os 3 últimos dígitos do bloco 8 + os 2 primeiros do bloco 9.
 // Em índice 0-based isso é substring(29, 34).
 
-const POS_INICIO = 29 // índice 0-based da posição 30
-const POS_FIM = 34    // índice 0-based exclusivo da posição 34
+const POS_INICIO = 25 // posição 26 (0-based)
+const POS_FIM = 34    // posição 35 (0-based, exclusiva)
 
-/** Extrai os 5 dígitos brutos (posições 30-34) de uma chave de 44 dígitos. */
+/** Extrai os 9 dígitos brutos (posições 26-34) de uma chave de 44 dígitos. */
 export function extrairDigitosNfe(valor: string): string {
   const digits = String(valor ?? '').replace(/\D/g, '')
   if (digits.length === 44) return digits.substring(POS_INICIO, POS_FIM)
@@ -35,8 +35,9 @@ export function extrairDigitosNfe(valor: string): string {
 export function normalizarNfe(valor: string): string {
   const bruto = extrairDigitosNfe(valor)
   if (!bruto) return ''
-  const n = parseInt(bruto, 10)
-  return Number.isNaN(n) ? bruto : String(n)
+  // Remove zeros à esquerda usando regex para evitar scientific notation em chaves parciais/inválidas
+  const nfeNum = bruto.replace(/^0+/, '')
+  return nfeNum || '0'
 }
 
 /** Compara dois valores de NF-e tolerando chave completa, zeros à esquerda e formatação. */

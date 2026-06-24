@@ -45,6 +45,7 @@ export default function EditarRomaneioPage() {
   const barcodeRef = useRef<HTMLInputElement>(null)
   const [barcodeValue, setBarcodeValue] = useState('')
   const [scanning, setScanning] = useState(false)
+  const lastProcessedRef = useRef<string>('')
 
   useEffect(() => { load() }, [id])
 
@@ -70,7 +71,17 @@ export default function EditarRomaneioPage() {
 
   // ── Bipagem ──────────────────────────────────────────────────────────────────
   async function processarBipagem(nfe: string) {
-    const nfeNum = normalizarNfe(nfe)
+    const cleanNfe = nfe.trim()
+    if (!cleanNfe) return
+
+    // Evita processar a mesma chave/NF-e repetidamente (prevenção de duplo disparo do leitor)
+    if (lastProcessedRef.current === cleanNfe) return
+    lastProcessedRef.current = cleanNfe
+    setTimeout(() => {
+      if (lastProcessedRef.current === cleanNfe) lastProcessedRef.current = ''
+    }, 1000)
+
+    const nfeNum = normalizarNfe(cleanNfe)
     if (!nfeNum) return
     setBarcodeValue('')
 
@@ -114,9 +125,17 @@ export default function EditarRomaneioPage() {
   }
 
   function handleBarcodeKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== 'Enter' || !barcodeValue.trim()) return
+    if (e.key !== 'Enter') return
+    const val = e.currentTarget.value.trim()
+    if (!val) return
     e.preventDefault()
-    if (!ehChaveCompleta(barcodeValue)) processarBipagem(barcodeValue)
+
+    // Se for menor ou igual a 9 dígitos, é NF-e curta manual
+    // Se for exatamente 44 dígitos, envia para processamento
+    // Se for um tamanho intermediário (chave parcial), descarta para evitar lixo
+    if (val.length <= 9 || val.length === 44) {
+      processarBipagem(val)
+    }
   }
 
   function updateItem(idx: number, field: keyof ItemForm, value: string | number) {
