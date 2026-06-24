@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioStatus } from '../types'
-import { Plus, Search, Share2, Camera, Calendar, Truck, User } from 'lucide-react'
-
-const STATUSES: (RomaneioStatus | '')[] = ['', 'Pendente', 'Preenchido', 'Liberado', 'Cancelado']
+import { Plus, Search, Camera, Truck, Calendar, User, ClipboardList, AlertTriangle, ArrowRight, X } from 'lucide-react'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -14,6 +12,10 @@ export default function DashboardPage() {
   const [filtroStatus, setFiltroStatus] = useState<RomaneioStatus | ''>('')
   const [busca, setBusca] = useState('')
   const [counts, setCounts] = useState({ Pendente: 0, Preenchido: 0, Liberado: 0, Cancelado: 0 })
+  
+  // Modal scan select list states
+  const [showScanModal, setShowScanModal] = useState(false)
+  const [activeRomaneios, setActiveRomaneios] = useState<Romaneio[]>([])
 
   // Load status counts
   const loadCounts = async () => {
@@ -75,9 +77,13 @@ export default function DashboardPage() {
         q = q.or(orFilter)
       }
 
-      const { data, error } = await q.limit(40) // Limit to top 40 on mobile for speed
+      const { data, error } = await q.limit(20) // Limit to top 20 on mobile
       if (error) throw error
       setRomaneios(data || [])
+
+      // Store active romaneios for scanner selection (Pendente and Preenchido)
+      const actives = (data || []).filter(r => r.status === 'Pendente' || r.status === 'Preenchido')
+      setActiveRomaneios(actives)
     } catch (error) {
       console.error(error)
       toast.error('Erro ao carregar romaneios.')
@@ -102,7 +108,7 @@ export default function DashboardPage() {
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel('dashboard-mobile-realtime')
+      .channel('dashboard-redesign-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'romaneios' }, () => {
         loadCounts()
         loadRomaneios(filtroStatus, busca)
@@ -113,186 +119,286 @@ export default function DashboardPage() {
     }
   }, [filtroStatus, busca, loadRomaneios])
 
-  // Generate public form link
-  const getPublicLink = (token: string) => {
-    const base = import.meta.env.VITE_APP_URL || window.location.origin
-    return `${base}/coleta/${token}`
-  }
-
-  // Copy link to clipboard
-  const handleCopyLink = async (e: React.MouseEvent, token: string) => {
-    e.stopPropagation()
-    try {
-      await navigator.clipboard.writeText(getPublicLink(token))
-      toast.success('Link de coleta copiado!')
-    } catch (err) {
-      toast.error('Erro ao copiar link.')
-    }
-  }
-
-  // Format creation date
   const formatDate = (isoString: string) => {
     const date = new Date(isoString)
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
+  // Handle clicking on "Conferir Carga" action
+  const handleOpenScannerSelection = async () => {
+    try {
+      // Query database for all active romaneios (Pendente or Preenchido)
+      const { data, error } = await supabase
+        .from('romaneios')
+        .select('*')
+        .is('excluido_em', null)
+        .in('status', ['Pendente', 'Preenchido'])
+        .order('data_criacao', { ascending: false })
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        setActiveRomaneios(data)
+        setShowScanModal(true)
+      } else {
+        toast('Nenhum romaneio ativo aguardando bipagem.', { icon: 'ℹ️' })
+      }
+    } catch (e) {
+      toast.error('Erro ao carregar romaneios ativos.')
+    }
+  }
+
+  const handleSelectScannerRomaneio = (romaneioId: string) => {
+    setShowScanModal(false)
+    navigate(`/romaneios/${romaneioId}/bipar`)
+  }
+
+  const activeCount = counts.Pendente + counts.Preenchido
+  const liberadoCount = counts.Liberado
+
   return (
-    <div style={{ position: 'relative', minHeight: 'calc(100vh - 120px)' }}>
-      {/* Metrics Horizontal Scroll Tabs */}
-      <div style={{
-        display: 'flex',
-        gap: '8px',
-        overflowX: 'auto',
-        paddingBottom: '12px',
-        marginBottom: '16px',
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none'
-      }}>
-        {STATUSES.map((status) => {
-          const isActive = filtroStatus === status
-          const count = status === '' ? 0 : counts[status as keyof typeof counts] || 0
-          return (
-            <button
-              key={status}
-              onClick={() => setFiltroStatus(status)}
-              style={{
-                flexShrink: 0,
-                padding: '8px 16px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: 600,
-                border: '1px solid var(--border)',
-                background: isActive ? 'var(--primary)' : 'var(--bg-card)',
-                color: isActive ? '#fff' : 'var(--text)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              <span>{status || 'Todos'}</span>
-              {status !== '' && (
-                <span style={{
-                  fontSize: '10px',
-                  background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-highlight)',
-                  padding: '2px 6px',
-                  borderRadius: '10px',
-                  color: isActive ? '#fff' : 'var(--text-muted)'
-                }}>{count}</span>
-              )}
-            </button>
-          )
-        })}
+    <div style={{ paddingBottom: '32px' }}>
+      
+      {/* 1. Metrics Dual Column Grid Row */}
+      <div className="metrics-row">
+        <div className="metric-col-card" onClick={() => setFiltroStatus('')}>
+          <div className="metric-icon-wrap">
+            <ClipboardList size={18} />
+          </div>
+          <span className="metric-number">{activeCount}</span>
+          <span className="metric-label">Romaneios Ativos</span>
+        </div>
+        <div className="metric-col-card" onClick={() => setFiltroStatus('Liberado')}>
+          <div className="metric-icon-wrap" style={{ background: 'rgba(0, 171, 68, 0.08)', color: 'var(--success)' }}>
+            <Truck size={18} />
+          </div>
+          <span className="metric-number" style={{ color: 'var(--success)' }}>{liberadoCount}</span>
+          <span className="metric-label">Veículos Liberados</span>
+        </div>
       </div>
 
-      {/* Sticky Search Bar */}
-      <div style={{ marginBottom: '16px', position: 'relative' }}>
-        <input
-          type="text"
-          className="input"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por placa, motorista, NF-e..."
-          style={{ height: '44px', paddingLeft: '40px' }}
-        />
-        <Search size={18} className="search-icon" style={{ left: '14px' }} />
-      </div>
-
-      {/* Loading state */}
-      {loading && romaneios.length === 0 ? (
-        <div className="flex-center" style={{ padding: '40px 0' }}>
-          <div style={{
-            width: '28px',
-            height: '28px',
-            borderRadius: '50%',
-            border: '2px solid var(--border)',
-            borderTopColor: 'var(--primary)',
-            animation: 'spin 1s linear infinite'
-          }} />
-        </div>
-      ) : romaneios.length === 0 ? (
-        <div className="text-center text-muted" style={{ padding: '60px 16px' }}>
-          Nenhum romaneio encontrado.
-        </div>
-      ) : (
-        /* Romaneios vertical card list */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {romaneios.map((romaneio) => (
-            <div
-              key={romaneio.id}
-              className="card"
-              onClick={() => navigate(`/romaneios/${romaneio.id}`)}
-              style={{ padding: '16px', cursor: 'pointer' }}
-            >
-              {/* Header card info */}
-              <div className="flex-between" style={{ marginBottom: '10px' }}>
-                <span className="badge pendente" style={{ fontSize: '10px', background: 'var(--bg-highlight)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                  #{romaneio.id.slice(0, 8).toUpperCase()}
-                </span>
-                <span className={`badge ${romaneio.status.toLowerCase()}`}>
-                  {romaneio.status}
-                </span>
-              </div>
-
-              {/* Transportadora e Placa */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                  <Truck size={16} className="text-muted" />
-                  <span className="font-bold">{romaneio.transportadora_nome || 'A definir'}</span>
-                </div>
-                {romaneio.motorista_nome && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                    <User size={14} />
-                    <span>{romaneio.motorista_nome} ({romaneio.veiculo_placa || 'Sem placa'})</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                  <Calendar size={14} />
-                  <span>Criado em {formatDate(romaneio.data_criacao)}</span>
-                </div>
-              </div>
-
-              {/* Quick action buttons row inside card */}
-              <div className="flex-between" style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '6px' }}>
-                {romaneio.status === 'Pendente' ? (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={(e) => handleCopyLink(e, romaneio.token_publico)}
-                    style={{ height: '36px', fontSize: '12px', padding: '0 12px', width: 'auto' }}
-                  >
-                    <Share2 size={14} />
-                    <span>Link Público</span>
-                  </button>
-                ) : (
-                  <div />
-                )}
-                
-                <button
-                  className="btn btn-primary"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    navigate(`/romaneios/${romaneio.id}/bipar`)
-                  }}
-                  style={{ height: '36px', fontSize: '12px', padding: '0 16px', width: 'auto', background: 'var(--success)' }}
-                >
-                  <Camera size={14} />
-                  <span>Conferir (Câmera)</span>
-                </button>
-              </div>
+      {/* 2. Warning Card Alert (Yellow) */}
+      {counts.Pendente > 0 && (
+        <div
+          className="warning-card"
+          onClick={() => setFiltroStatus(filtroStatus === 'Pendente' ? '' : 'Pendente')}
+          style={{ cursor: 'pointer', borderLeftColor: filtroStatus === 'Pendente' ? 'var(--primary)' : 'var(--warning)' }}
+        >
+          <div className="warning-card-left">
+            <AlertTriangle size={24} />
+            <div>
+              <div className="warning-title">Romaneios Pendentes</div>
+              <div className="warning-desc">Disponibilizar link de cadastro</div>
             </div>
-          ))}
+          </div>
+          <div className="warning-badge">
+            <div className="warning-badge-number">{counts.Pendente}</div>
+            <div className="warning-badge-text">romaneios</div>
+          </div>
         </div>
       )}
 
-      {/* Floating Action Button (+) */}
-      <button
-        className="fab-scan"
-        onClick={() => navigate('/romaneios/novo')}
-        style={{ bottom: '24px', right: '24px' }}
-        aria-label="Novo Romaneio"
-      >
-        <Plus size={24} />
-      </button>
+      {/* 3. Section Title "Ações" */}
+      <div className="section-badge">Ações</div>
+
+      {/* 4. Action Cards with colored borders (Magalu style) */}
+      <div style={{ marginBottom: '24px' }}>
+        {/* Action 1: Create Romaneio (Green border) */}
+        <button
+          onClick={() => navigate('/romaneios/novo')}
+          className="action-card green"
+          style={{ width: '100%', border: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <div className="action-card-content">
+            <Plus size={22} className="action-card-icon" />
+            <span className="action-card-text">Criar novo romaneio</span>
+          </div>
+          <ArrowRight size={18} className="text-muted" />
+        </button>
+
+        {/* Action 2: Scan Barcode (Purple border) */}
+        <button
+          onClick={handleOpenScannerSelection}
+          className="action-card purple"
+          style={{ width: '100%', border: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <div className="action-card-content">
+            <Camera size={22} className="action-card-icon" />
+            <span className="action-card-text">Conferir carga (Bipar)</span>
+          </div>
+          <ArrowRight size={18} className="text-muted" />
+        </button>
+
+        {/* Action 3: Consult romaneios (Blue border) */}
+        <button
+          onClick={() => {
+            setFiltroStatus('')
+            document.getElementById('search-anchor')?.scrollIntoView({ behavior: 'smooth' })
+          }}
+          className="action-card blue"
+          style={{ width: '100%', border: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <div className="action-card-content">
+            <Search size={22} className="action-card-icon" />
+            <span className="action-card-text">Consultar romaneios</span>
+          </div>
+          <ArrowRight size={18} className="text-muted" />
+        </button>
+      </div>
+
+      {/* 5. Romaneios list (Search bar + cards) */}
+      <div id="search-anchor" style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+        <div className="flex-between" style={{ marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 800 }}>
+            {filtroStatus ? `Romaneios: ${filtroStatus}` : 'Todos os Romaneios'} ({romaneios.length})
+          </h3>
+          {filtroStatus && (
+            <button
+              onClick={() => setFiltroStatus('')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: '12px' }}
+            >
+              Limpar Filtro
+            </button>
+          )}
+        </div>
+
+        {/* Search input field */}
+        <div className="search-container">
+          <div className="search-input-wrapper">
+            <input
+              type="text"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar por placa, motorista, NF-e..."
+            />
+            <Search size={18} className="search-icon" />
+          </div>
+        </div>
+
+        {/* Romaneios Recentes List */}
+        {loading && romaneios.length === 0 ? (
+          <div className="flex-center" style={{ padding: '32px 0' }}>
+            <div style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              border: '2px solid var(--border)',
+              borderTopColor: 'var(--primary)',
+              animation: 'spin 1s linear infinite'
+            }} />
+          </div>
+        ) : romaneios.length === 0 ? (
+          <div className="text-center text-muted" style={{ padding: '32px 16px', fontSize: '13px' }}>
+            Nenhum romaneio encontrado.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+            {romaneios.map((r) => (
+              <div
+                key={r.id}
+                className="card"
+                onClick={() => navigate(`/romaneios/${r.id}`)}
+                style={{ padding: '16px', margin: 0, cursor: 'pointer' }}
+              >
+                <div className="flex-between" style={{ marginBottom: '8px' }}>
+                  <span className="badge pendente" style={{ fontSize: '10px', background: 'var(--bg-highlight)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    #{r.id.slice(0, 8).toUpperCase()}
+                  </span>
+                  <span className={`badge ${r.status.toLowerCase()}`}>
+                    {r.status}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                    <Truck size={14} className="text-muted" />
+                    <span className="font-bold" style={{ fontSize: '14px' }}>{r.transportadora_nome || 'A definir'}</span>
+                  </div>
+                  {r.motorista_nome && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <User size={12} />
+                      <span>{r.motorista_nome} ({r.veiculo_placa || 'Sem placa'})</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <Calendar size={12} />
+                    <span>Criado em {formatDate(r.data_criacao)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Slide-up active romaneio selection sheet/modal for quick scan */}
+      {showScanModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 200,
+          display: 'flex',
+          alignItems: 'flex-end'
+        }} onClick={() => setShowScanModal(false)}>
+          <div style={{
+            background: 'var(--bg-card)',
+            borderTopLeftRadius: '20px',
+            borderTopRightRadius: '20px',
+            width: '100%',
+            maxHeight: '70vh',
+            overflowY: 'auto',
+            padding: '24px 16px',
+            boxShadow: '0 -4px 10px rgba(0,0,0,0.1)'
+          }} onClick={e => e.stopPropagation()}>
+            
+            <div className="flex-between" style={{ marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '17px', fontWeight: 800 }}>Escolha um Romaneio para Conferir</h3>
+              <button
+                onClick={() => setShowScanModal(false)}
+                style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {activeRomaneios.map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => handleSelectScannerRomaneio(r.id)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-highlight)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit'
+                  }}
+                >
+                  <div className="flex-between">
+                    <span className="font-bold" style={{ fontSize: '13px' }}>#{r.id.slice(0, 8).toUpperCase()}</span>
+                    <span className={`badge ${r.status.toLowerCase()}`} style={{ fontSize: '9px' }}>{r.status}</span>
+                  </div>
+                  <div style={{ marginTop: '6px', fontSize: '14px', fontWeight: 700 }}>
+                    {r.transportadora_nome || 'Transportadora a definir'}
+                  </div>
+                  {r.motorista_nome && (
+                    <div className="text-muted" style={{ fontSize: '12px', marginTop: '2px' }}>
+                      Motorista: {r.motorista_nome}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes spin {
