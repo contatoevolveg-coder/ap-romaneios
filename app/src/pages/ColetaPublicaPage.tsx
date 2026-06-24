@@ -62,11 +62,11 @@ export default function ColetaPublicaPage() {
     if (submitRef.current) return
     setError('')
 
-    if (!validateCNPJ(form.transportadora_cnpj)) {
+    if (form.transportadora_cnpj.trim() && !validateCNPJ(form.transportadora_cnpj)) {
       setError('CNPJ da transportadora inválido. Verifique os dígitos.')
       return
     }
-    if (!validateCPF(form.motorista_cpf)) {
+    if (form.motorista_cpf.trim() && !validateCPF(form.motorista_cpf)) {
       setError('CPF do motorista inválido. Verifique os dígitos.')
       return
     }
@@ -79,13 +79,13 @@ export default function ColetaPublicaPage() {
     setSaving(true)
     const { data } = await supabase.rpc('preencher_dados_coleta', {
       p_token: token,
-      p_transportadora_nome: form.transportadora_nome.trim(),
-      p_transportadora_cnpj: form.transportadora_cnpj,
-      p_motorista_nome: form.motorista_nome.trim(),
-      p_motorista_rg: form.motorista_rg.trim(),
-      p_motorista_cpf: form.motorista_cpf,
-      p_veiculo_modelo: form.veiculo_modelo.trim(),
-      p_veiculo_placa: form.veiculo_placa.trim().toUpperCase(),
+      p_transportadora_nome: form.transportadora_nome.trim() || null,
+      p_transportadora_cnpj: form.transportadora_cnpj.trim() || null,
+      p_motorista_nome: form.motorista_nome.trim() || null,
+      p_motorista_rg: form.motorista_rg.trim() || null,
+      p_motorista_cpf: form.motorista_cpf.trim() || null,
+      p_veiculo_modelo: form.veiculo_modelo.trim() || null,
+      p_veiculo_placa: form.veiculo_placa.trim().toUpperCase() || null,
       p_observacao: form.observacao_transportadora.trim() || null,
       p_assinatura: null,
     })
@@ -208,12 +208,12 @@ export default function ColetaPublicaPage() {
             <div className="section-title">Transportadora</div>
             <div className="field-row">
               <div className="field">
-                <label>Razão Social *</label>
-                <input value={form.transportadora_nome} onChange={e => setForm(p => ({ ...p, transportadora_nome: e.target.value }))} required placeholder="Nome da transportadora" />
+                <label>Razão Social</label>
+                <input value={form.transportadora_nome} onChange={e => setForm(p => ({ ...p, transportadora_nome: e.target.value }))} placeholder="Nome da transportadora" />
               </div>
               <div className="field">
-                <label>CNPJ *</label>
-                <input value={form.transportadora_cnpj} onChange={onCNPJChange} required placeholder="00.000.000/0001-00" inputMode="numeric" />
+                <label>CNPJ</label>
+                <input value={form.transportadora_cnpj} onChange={onCNPJChange} placeholder="00.000.000/0001-00" inputMode="numeric" />
               </div>
             </div>
           </div>
@@ -221,13 +221,13 @@ export default function ColetaPublicaPage() {
           <div className="form-section">
             <div className="section-title">Motorista</div>
             <div className="field">
-              <label>Nome Completo *</label>
-              <input value={form.motorista_nome} onChange={e => setForm(p => ({ ...p, motorista_nome: e.target.value }))} required placeholder="Nome do motorista" />
+              <label>Nome Completo</label>
+              <input value={form.motorista_nome} onChange={e => setForm(p => ({ ...p, motorista_nome: e.target.value }))} placeholder="Nome do motorista" />
             </div>
             <div className="field-row" style={{ marginTop: 10 }}>
               <div className="field">
-                <label>CPF *</label>
-                <input value={form.motorista_cpf} onChange={onCPFChange} required placeholder="000.000.000-00" inputMode="numeric" />
+                <label>CPF</label>
+                <input value={form.motorista_cpf} onChange={onCPFChange} placeholder="000.000.000-00" inputMode="numeric" />
               </div>
               <div className="field">
                 <label>RG</label>
@@ -240,12 +240,12 @@ export default function ColetaPublicaPage() {
             <div className="section-title">Veículo</div>
             <div className="field-row">
               <div className="field">
-                <label>Modelo *</label>
-                <input value={form.veiculo_modelo} onChange={e => setForm(p => ({ ...p, veiculo_modelo: e.target.value }))} required placeholder="Ex: Volvo FH 460" />
+                <label>Modelo</label>
+                <input value={form.veiculo_modelo} onChange={e => setForm(p => ({ ...p, veiculo_modelo: e.target.value }))} placeholder="Ex: Volvo FH 460" />
               </div>
               <div className="field">
-                <label>Placa *</label>
-                <input value={form.veiculo_placa} onChange={e => setForm(p => ({ ...p, veiculo_placa: e.target.value }))} required placeholder="AAA-0000" style={{ textTransform: 'uppercase' }} />
+                <label>Placa</label>
+                <input value={form.veiculo_placa} onChange={e => setForm(p => ({ ...p, veiculo_placa: e.target.value }))} placeholder="AAA-0000" style={{ textTransform: 'uppercase' }} />
               </div>
             </div>
           </div>
