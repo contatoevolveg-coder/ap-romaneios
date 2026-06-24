@@ -147,6 +147,8 @@ CREATE POLICY "auth_all_veiculos"
   ON public.veiculos_cadastrados FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Função bipar_item_romaneio
+DROP FUNCTION IF EXISTS public.bipar_item_romaneio(UUID, UUID, TEXT) CASCADE;
+
 CREATE OR REPLACE FUNCTION public.bipar_item_romaneio(
   p_romaneio_id UUID,
   p_item_id UUID,
