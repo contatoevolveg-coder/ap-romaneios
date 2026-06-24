@@ -5,6 +5,7 @@ import { CheckCircle2, Circle, ArrowLeft, ScanLine, Camera, CameraOff } from 'lu
 import type { Romaneio, RomaneioItem } from '../types'
 import toast from 'react-hot-toast'
 import { normalizarNfe, mesmaNfe, ehChaveCompleta } from '../lib/nfe'
+import { audioService } from '../lib/audio'
 
 export default function BipadorPage() {
   const { id } = useParams<{ id: string }>()
@@ -50,9 +51,14 @@ export default function BipadorPage() {
           ? { ...i, bipado_em: bipado ? new Date().toISOString() : null, bipado_codigo: bipado ? (codigo ?? item.numero_nfe) : null }
           : i
       ))
-      if (bipado) toast.success(`NF-e ${item.numero_nfe} confirmada`)
-      else toast('NF-e desmarcada', { icon: '↩' })
+      if (bipado) {
+        audioService.playSuccess()
+        toast.success(`NF-e ${item.numero_nfe} confirmada`)
+      } else {
+        toast('NF-e desmarcada', { icon: '↩' })
+      }
     } else {
+      audioService.playError()
       toast.error(data?.error ?? 'Erro ao bipar item')
     }
   }
@@ -78,6 +84,7 @@ export default function BipadorPage() {
     if (item) {
       await biparItem(item, nfeExtraida)
     } else {
+      audioService.playError()
       toast.error(`NF-e não encontrada: ${nfeExtraida}`)
     }
     setCodigoInput('')

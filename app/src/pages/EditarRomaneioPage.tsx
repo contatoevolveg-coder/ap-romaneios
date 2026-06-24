@@ -4,7 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, PlusCircle, Trash2, Save, Upload, Barcode, Loader2 } from 'lucide-react'
-import { normalizarNfe, ehChaveCompleta, analisarChave, mesmaNfe } from '../lib/nfe'
+import { normalizarNfe, ehChaveCompleta, analisarChave, mesmaNfe, parseNfeXml } from '../lib/nfe'
+import { audioService } from '../lib/audio'
 
 interface ItemForm {
   id?: string
@@ -42,6 +43,7 @@ export default function EditarRomaneioPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const xmlInputRef = useRef<HTMLInputElement>(null)
   const barcodeRef = useRef<HTMLInputElement>(null)
   const [barcodeValue, setBarcodeValue] = useState('')
   const [scanning, setScanning] = useState(false)
@@ -87,6 +89,7 @@ export default function EditarRomaneioPage() {
 
     // Checar duplicata
     if (itens.some(it => mesmaNfe(it.numero_nfe, nfeNum))) {
+      audioService.playError()
       toast.error(`NF-e ${nfeNum} já está na lista`)
       return
     }
@@ -97,12 +100,14 @@ export default function EditarRomaneioPage() {
         body: { nfe: nfeNum }
       })
       if (error || data?.error) {
+        audioService.playError()
         toast(`NF-e ${nfeNum} não encontrada no WMS. Preencha manualmente.`, { icon: '⚠️' })
         setItens(prev => {
           const lista = prev.filter(it => it.numero_nfe !== '')
           return [...lista, { numero_nfe: nfeNum, cliente_destinatario: '', empresa: '', depositante: '', qtd_volumes: 1, isNew: true }]
         })
       } else {
+        audioService.playSuccess()
         setItens(prev => {
           const lista = prev.filter(it => it.numero_nfe !== '')
           return [...lista, {
@@ -117,6 +122,7 @@ export default function EditarRomaneioPage() {
         toast.success(`NF-e ${nfeNum} adicionada — ${data.empresa || 'empresa não identificada'}`)
       }
     } catch {
+      audioService.playError()
       toast.error('Erro ao consultar WMS')
     } finally {
       setScanning(false)
@@ -210,6 +216,68 @@ export default function EditarRomaneioPage() {
     }
   }
 
+  async function importarXmls(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const novosItens: ItemForm[] = []
+    let erros = 0
+
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const text = await files[i].text()
+        const parsed = parseNfeXml(text)
+        if (parsed) {
+          novosItens.push({
+            numero_nfe: parsed.numero_nfe,
+            cliente_destinatario: parsed.cliente_destinatario,
+            empresa: parsed.empresa,
+            depositante: parsed.depositante,
+            qtd_volumes: parsed.qtd_volumes,
+            isNew: true
+          })
+        } else {
+          erros++
+        }
+      } catch (err) {
+        console.error(err)
+        erros++
+      }
+    }
+
+    e.target.value = ''
+
+    if (novosItens.length === 0) {
+      audioService.playError()
+      toast.error('Nenhum XML válido pôde ser importado.')
+      return
+    }
+
+    const itensFiltrados = novosItens.filter(nov => {
+      const jaExiste = itens.some(exist => mesmaNfe(exist.numero_nfe, nov.numero_nfe))
+      return !jaExiste
+    })
+
+    const duplicadosCount = novosItens.length - itensFiltrados.length
+
+    if (itensFiltrados.length > 0) {
+      setItens(prev => {
+        const limpa = prev.filter(it => it.numero_nfe.trim() !== '')
+        return [...limpa, ...itensFiltrados]
+      })
+      audioService.playSuccess()
+      toast.success(`${itensFiltrados.length} NF-e(s) importada(s) com sucesso!`)
+    }
+
+    if (duplicadosCount > 0) {
+      toast(`${duplicadosCount} NF-e(s) ignorada(s) por já estarem na lista.`, { icon: '⚠️' })
+    }
+
+    if (erros > 0) {
+      toast.error(`Falha ao ler ${erros} arquivo(s) XML.`)
+    }
+  }
+
   async function salvar() {
     if (itens.some(it => !it.numero_nfe.trim() || !it.cliente_destinatario.trim())) {
       setError('Preencha os campos obrigatórios (NF-e e Destinatário) em todos os itens.')
@@ -294,8 +362,12 @@ export default function EditarRomaneioPage() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={importarExcel} />
+          <input ref={xmlInputRef} type="file" accept=".xml" multiple style={{ display: 'none' }} onChange={importarXmls} />
           <button type="button" className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
             <Upload size={15} /> Importar Excel
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => xmlInputRef.current?.click()}>
+            <Upload size={15} /> Importar XMLs
           </button>
           <button className="btn-primary" onClick={salvar} disabled={saving}>
             <Save size={15} /> {saving ? 'Salvando...' : 'Salvar alterações'}

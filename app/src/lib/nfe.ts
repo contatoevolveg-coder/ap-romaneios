@@ -69,3 +69,55 @@ export function analisarChave(
 export function ehChaveCompleta(valor: string): boolean {
   return String(valor ?? '').replace(/\D/g, '').length === 44
 }
+
+export interface ParsedXmlNfe {
+  numero_nfe: string
+  cliente_destinatario: string
+  empresa: string
+  depositante: string
+  qtd_volumes: number
+}
+
+/** Lê e extrai as informações principais de um XML de NF-e (DANFE). */
+export function parseNfeXml(xmlText: string): ParsedXmlNfe | null {
+  try {
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(xmlText, 'text/xml')
+
+    // Chave de acesso
+    const chNFe = xmlDoc.getElementsByTagName('chNFe')[0]?.textContent || ''
+    
+    // Número da NF-e
+    let nfeNum = xmlDoc.getElementsByTagName('nNF')[0]?.textContent || ''
+    
+    // Se achou chave mas não achou nNF diretamente, extrai da chave
+    if (!nfeNum && chNFe.length === 44) {
+      nfeNum = chNFe.substring(25, 34)
+    }
+    
+    if (!nfeNum) return null
+
+    // Destinatário
+    const destTag = xmlDoc.getElementsByTagName('dest')[0]
+    const cliente_destinatario = destTag?.getElementsByTagName('xNome')[0]?.textContent || ''
+
+    // Emitente (Empresa)
+    const emitTag = xmlDoc.getElementsByTagName('emit')[0]
+    const empresa = emitTag?.getElementsByTagName('xNome')[0]?.textContent || ''
+
+    // Volumes
+    const qVol = xmlDoc.getElementsByTagName('qVol')[0]?.textContent
+    const qtd_volumes = Math.max(1, Number(qVol) || 1)
+
+    return {
+      numero_nfe: nfeNum.replace(/^0+/, ''),
+      cliente_destinatario: cliente_destinatario.trim(),
+      empresa: empresa.trim(),
+      depositante: '',
+      qtd_volumes
+    }
+  } catch (e) {
+    console.error('Error parsing XML', e)
+    return null
+  }
+}

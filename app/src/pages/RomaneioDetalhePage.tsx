@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import StatusBadge from '../components/StatusBadge'
 import ConfirmModal from '../components/ConfirmModal'
 import { normalizarNfe, mesmaNfe, ehChaveCompleta } from '../lib/nfe'
+import { audioService } from '../lib/audio'
 import { ArrowLeft, Copy, Printer, CheckCircle, XCircle, PlusCircle, Trash2, Clock, RefreshCw, ChevronDown, ChevronUp, ScanLine, Pencil, Camera, PenLine } from 'lucide-react'
 import { formatCNPJ, formatCPF, formatRG, validateCNPJ, validateCPF, validatePlaca } from '../lib/validators'
 
@@ -323,8 +324,10 @@ export default function RomaneioDetalhePage() {
         body: { nfe: nfeNum }
       })
       if (error || data?.error) {
+        audioService.playError()
         toast.error(`NF-e ${nfeNum} não encontrada no WMS. Preencha manualmente.`)
       } else {
+        audioService.playSuccess()
         setNewItem({
           numero_nfe: data.nfe || nfeNum,
           cliente_destinatario: data.destinatario || '',
@@ -335,6 +338,7 @@ export default function RomaneioDetalhePage() {
         toast.success(`Dados da NF-e ${nfeNum} carregados!`)
       }
     } catch {
+      audioService.playError()
       toast.error('Erro ao consultar WMS')
     } finally {
       setSearchingNfe(false)
@@ -347,6 +351,7 @@ export default function RomaneioDetalhePage() {
 
     const nfeNorm = normalizarNfe(newItem.numero_nfe)
     if (itens.some(it => mesmaNfe(it.numero_nfe, nfeNorm))) {
+      audioService.playError()
       setAddItemError(`NF-e "${nfeNorm}" já existe neste romaneio.`)
       return
     }
@@ -362,8 +367,15 @@ export default function RomaneioDetalhePage() {
     }).select().single()
     setSavingItem(false)
 
-    if (error) { toast.error('Erro ao adicionar item: ' + error.message); return }
-    if (data) setItens(prev => [...prev, data])
+    if (error) {
+      audioService.playError()
+      toast.error('Erro ao adicionar item: ' + error.message)
+      return
+    }
+    if (data) {
+      audioService.playSuccess()
+      setItens(prev => [...prev, data])
+    }
     setNewItem({ numero_nfe: '', cliente_destinatario: '', empresa: '', depositante: '', qtd_volumes: 1 })
     setShowAddItem(false)
     toast.success('NF-e adicionada.')
