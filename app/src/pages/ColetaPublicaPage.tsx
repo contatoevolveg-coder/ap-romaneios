@@ -1,93 +1,12 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { formatCNPJ, formatCPF, formatRG, validateCNPJ, validateCPF, validatePlaca } from '../lib/validators'
 import type { RomaneioCompleto } from '../types'
-import { Truck, CheckCircle, Clock, PenLine, Trash2 } from 'lucide-react'
+import { Truck, CheckCircle, Clock } from 'lucide-react'
 
-function SignaturePad({ onCapture }: { onCapture: (data: string | null) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const drawing = useRef(false)
-  const [hasSig, setHasSig] = useState(false)
-
-  const getPos = (e: MouseEvent | TouchEvent, canvas: HTMLCanvasElement) => {
-    const rect = canvas.getBoundingClientRect()
-    const src = 'touches' in e ? e.touches[0] : e
-    return { x: src.clientX - rect.left, y: src.clientY - rect.top }
-  }
-
-  const startDraw = useCallback((e: MouseEvent | TouchEvent) => {
-    e.preventDefault()
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d')!
-    const { x, y } = getPos(e, canvas)
-    ctx.beginPath()
-    ctx.moveTo(x, y)
-    drawing.current = true
-  }, [])
-
-  const draw = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!drawing.current) return
-    e.preventDefault()
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d')!
-    const { x, y } = getPos(e, canvas)
-    ctx.lineTo(x, y)
-    ctx.strokeStyle = '#1e293b'
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.stroke()
-    setHasSig(true)
-    onCapture(canvas.toDataURL('image/png'))
-  }, [onCapture])
-
-  const stopDraw = useCallback(() => { drawing.current = false }, [])
-
-  useEffect(() => {
-    const canvas = canvasRef.current!
-    canvas.addEventListener('mousedown', startDraw)
-    canvas.addEventListener('mousemove', draw)
-    canvas.addEventListener('mouseup', stopDraw)
-    canvas.addEventListener('mouseleave', stopDraw)
-    canvas.addEventListener('touchstart', startDraw, { passive: false })
-    canvas.addEventListener('touchmove', draw, { passive: false })
-    canvas.addEventListener('touchend', stopDraw)
-    return () => {
-      canvas.removeEventListener('mousedown', startDraw)
-      canvas.removeEventListener('mousemove', draw)
-      canvas.removeEventListener('mouseup', stopDraw)
-      canvas.removeEventListener('mouseleave', stopDraw)
-      canvas.removeEventListener('touchstart', startDraw)
-      canvas.removeEventListener('touchmove', draw)
-      canvas.removeEventListener('touchend', stopDraw)
-    }
-  }, [startDraw, draw, stopDraw])
-
-  function limpar() {
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    setHasSig(false)
-    onCapture(null)
-  }
-
-  return (
-    <div className="signature-wrapper">
-      <div className="signature-label">
-        <PenLine size={14} /> Assinatura do Motorista
-      </div>
-      <canvas ref={canvasRef} className="signature-canvas" width={600} height={160} />
-      {hasSig && (
-        <button type="button" className="btn-ghost signature-clear" onClick={limpar}>
-          <Trash2 size={14} /> Limpar assinatura
-        </button>
-      )}
-      {!hasSig && <p className="signature-hint">Assine acima com o dedo ou mouse</p>}
-    </div>
-  )
-}
+// SignaturePad removed as signatures are now handled physically on the printed romaneio sheet.
 
 export default function ColetaPublicaPage() {
   const { token } = useParams<{ token: string }>()
@@ -98,7 +17,6 @@ export default function ColetaPublicaPage() {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [assinatura, setAssinatura] = useState<string | null>(null)
   const submitRef = useRef(false)
 
   const [form, setForm] = useState({
@@ -156,12 +74,6 @@ export default function ColetaPublicaPage() {
       setError('Placa do veículo inválida. Use o formato ABC-1234 ou ABC1D23 (Mercosul).')
       return
     }
-    if (!assinatura) {
-      setError('A assinatura do motorista é obrigatória para confirmar os dados.')
-      const sig = document.querySelector('.signature-canvas')
-      sig?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      return
-    }
 
     submitRef.current = true
     setSaving(true)
@@ -175,7 +87,7 @@ export default function ColetaPublicaPage() {
       p_veiculo_modelo: form.veiculo_modelo.trim(),
       p_veiculo_placa: form.veiculo_placa.trim().toUpperCase(),
       p_observacao: form.observacao_transportadora.trim() || null,
-      p_assinatura: assinatura || null,
+      p_assinatura: null,
     })
     setSaving(false)
     submitRef.current = false
@@ -352,15 +264,7 @@ export default function ColetaPublicaPage() {
             </div>
           </div>
 
-          <div className="form-section">
-            <div className="section-title" style={{ marginBottom: 8 }}>
-              Assinatura do Motorista <span style={{ color: '#ef4444' }}>*</span>
-            </div>
-            <p style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>
-              Obrigatória para confirmar o recebimento da carga. Use o dedo ou mouse para assinar.
-            </p>
-            <SignaturePad onCapture={setAssinatura} />
-          </div>
+          {/* Assinatura do motorista removida conforme solicitação do usuário. A assinatura agora é feita fisicamente no romaneio. */}
 
           {error && <div className="error-msg">{error}</div>}
 
