@@ -224,11 +224,6 @@ export default function ImpressaoPage() {
             <span>Motorista</span>
             <span>{data.motorista_nome || '____________________________'}</span>
           </div>
-          <div className="print-assinatura">
-            <div className="print-assinatura-linha" />
-            <span>Transportadora</span>
-            <span>{data.transportadora_nome || '____________________________'}</span>
-          </div>
         </div>
 
         <div className="print-rodape">
