@@ -4,6 +4,25 @@ import { supabase } from '../lib/supabase'
 import type { RomaneioCompleto, RomaneioItem } from '../types'
 import { Printer, Download } from 'lucide-react'
 
+function obterDataExtenso(dataEmissao?: string): string {
+  if (!dataEmissao) return '_______ de __________________ de ________'
+  const partes = dataEmissao.split(' ')
+  if (partes.length === 0) return '_______ de __________________ de ________'
+  const partesData = partes[0].split('/')
+  if (partesData.length !== 3) return '_______ de __________________ de ________'
+  const dia = parseInt(partesData[0], 10)
+  const mesIdx = parseInt(partesData[1], 10) - 1
+  const ano = partesData[2]
+  
+  const meses = [
+    'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+  ]
+  
+  const mesExtenso = meses[mesIdx] || '__________________'
+  return `${dia} de ${mesExtenso} de ${ano}`
+}
+
 export default function ImpressaoPage() {
   const { id } = useParams<{ id: string }>()
   const [data, setData] = useState<RomaneioCompleto | null>(null)
@@ -182,11 +201,16 @@ export default function ImpressaoPage() {
             total responsabilidade pela integridade da carga durante o transporte.
           </p>
           <p style={{ marginTop: 8 }}>
-            Local e Data: {data.remetente_cidade_uf}, _______ de __________________ de ________
+            Local e Data: {data.remetente_cidade_uf || '____________________________'}, {obterDataExtenso(data.data_emissao)}
           </p>
         </div>
 
         <div className="print-assinaturas">
+          <div className="print-assinatura">
+            <div className="print-assinatura-linha" />
+            <span>Remetente / Conferente</span>
+            <span>{data.remetente_nome}</span>
+          </div>
           <div className="print-assinatura">
             {data.assinatura_motorista ? (
               <img
@@ -199,11 +223,6 @@ export default function ImpressaoPage() {
             )}
             <span>Motorista</span>
             <span>{data.motorista_nome || '____________________________'}</span>
-          </div>
-          <div className="print-assinatura">
-            <div className="print-assinatura-linha" />
-            <span>Remetente / Conferente</span>
-            <span>{data.remetente_nome}</span>
           </div>
           <div className="print-assinatura">
             <div className="print-assinatura-linha" />

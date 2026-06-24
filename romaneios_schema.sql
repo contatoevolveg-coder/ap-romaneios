@@ -466,6 +466,7 @@ BEGIN
     'id', i.id,
     'numero_nfe', i.numero_nfe,
     'cliente_destinatario', i.cliente_destinatario,
+    'empresa', i.empresa,
     'depositante', i.depositante,
     'qtd_volumes', i.qtd_volumes,
     'peso_kg', i.peso_kg,
@@ -586,6 +587,7 @@ SELECT
             JSON_BUILD_OBJECT(
                 'numero_nfe',           ri.numero_nfe,
                 'cliente_destinatario', ri.cliente_destinatario,
+                'empresa',              ri.empresa,
                 'depositante',          ri.depositante,
                 'qtd_volumes',          ri.qtd_volumes,
                 'peso_kg',              ri.peso_kg,
