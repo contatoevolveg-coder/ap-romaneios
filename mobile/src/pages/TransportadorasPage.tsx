@@ -31,6 +31,7 @@ export default function TransportadorasPage() {
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [viewingPhoto, setViewingPhoto] = useState<{ mId: string; motoristaNome: string; base64: string } | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
   const [motorForm, setMotorForm] = useState<Record<string, MotoristaForm>>({})
   const [veicForm, setVeicForm]   = useState<Record<string, VeiculoForm>>({})
@@ -747,19 +748,34 @@ export default function TransportadorasPage() {
               flex: 1,
               overflow: 'auto',
               display: 'flex',
+              flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
               minHeight: '200px',
               maxHeight: '350px',
               border: '1px solid var(--border)',
               borderRadius: '8px',
-              background: '#f8fafc'
+              background: '#f8fafc',
+              position: 'relative'
             }}>
               <img
                 src={viewingPhoto.base64}
                 alt="Documento do Motorista"
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'pointer' }}
+                onClick={() => setLightboxImage(viewingPhoto.base64)}
               />
+              <span style={{
+                position: 'absolute',
+                bottom: '8px',
+                background: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                fontSize: '10px',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                pointerEvents: 'none'
+              }}>
+                Toque para ampliar
+              </span>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
@@ -778,6 +794,59 @@ export default function TransportadorasPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {lightboxImage && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1100,
+            padding: '16px'
+          }}
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              borderRadius: '50%',
+              color: 'white',
+              width: '40px',
+              height: '40px',
+              fontSize: '20px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1110
+            }}
+            onClick={() => setLightboxImage(null)}
+          >
+            ✕
+          </button>
+          <img
+            src={lightboxImage}
+            alt="Visualização do Documento"
+            style={{ 
+              maxWidth: '100%', 
+              maxHeight: '100%', 
+              objectFit: 'contain',
+              borderRadius: '4px'
+            }}
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
 
