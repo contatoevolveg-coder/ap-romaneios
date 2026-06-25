@@ -127,3 +127,21 @@ Este documento resume as implementações realizadas na versão móvel (`/mobile
 *   **Redeploy**: Compilado e atualizado na Vercel:
     *   **Desktop**: [https://app-one-kappa-31.vercel.app](https://app-one-kappa-31.vercel.app)
     *   **Mobile**: [https://mobile-gamma-lovat.vercel.app](https://mobile-gamma-lovat.vercel.app)
+
+---
+
+## 9. Categorização e Filtro de Transportadoras (Recorrentes vs Outras)
+
+*   **Banco de Dados (Supabase)**: Habilitada a coluna `recorrente boolean DEFAULT false` na tabela `public.transportadoras_cadastradas`. Executada a migração para marcar as transportadoras padrão do sistema (como `aceville`, `correios`, `flex - pex`, `full`, `mandae` e `marketplace`) como recorrentes, e `sudoeste transportes` como outra.
+*   **Cadastro e Edição**:
+    *   Tanto na versão **Desktop** quanto na versão **Mobile**, o formulário de cadastrar e editar transportadoras foi atualizado com o campo **"Transportadora Recorrente"** (checkbox).
+    *   Ao marcar a opção, o valor é salvo no banco de dados e determina a prioridade e posicionamento na lista.
+*   **Separação Visual**:
+    *   A listagem de transportadoras agora divide os registros de forma clara em duas seções: **Recorrentes** e **Outras Transportadoras**.
+    *   Cada seção exibe um contador de quantidade de itens, facilitando o gerenciamento.
+*   **Compilação & Deploy**:
+    *   Ambos os aplicativos compilados com sucesso.
+    *   Deploy de produção concluído na Vercel:
+        *   **Desktop**: [https://app-one-kappa-31.vercel.app](https://app-one-kappa-31.vercel.app)
+        *   **Mobile**: [https://mobile-gamma-lovat.vercel.app](https://mobile-gamma-lovat.vercel.app)
+
