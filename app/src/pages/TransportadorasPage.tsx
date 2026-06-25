@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { formatCNPJ, validateCNPJ, formatCPF, formatRG } from '../lib/validators'
 import type { TransportadoraCadastrada, MotoristaCadastrado, VeiculoCadastrado } from '../types'
 import toast from 'react-hot-toast'
-import { PlusCircle, Trash2, ChevronDown, ChevronUp, Truck, User, Car, AlertTriangle } from 'lucide-react'
+import { PlusCircle, Trash2, ChevronDown, ChevronUp, Truck, User, Car, AlertTriangle, Pencil, Camera, Eye } from 'lucide-react'
 
 type TabType = 'motoristas' | 'veiculos'
 
@@ -28,6 +28,8 @@ export default function TransportadorasPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyTransp())
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [viewingPhoto, setViewingPhoto] = useState<{ mId: string; motoristaNome: string; base64: string } | null>(null)
 
   const [motorForm, setMotorForm] = useState<Record<string, MotoristaForm>>({})
   const [veicForm, setVeicForm]   = useState<Record<string, VeiculoForm>>({})
@@ -61,6 +63,17 @@ export default function TransportadorasPage() {
     setActiveTab(prev => ({ ...prev, [id]: prev[id] ?? 'motoristas' }))
   }
 
+  function iniciarEdicao(t: TransportadoraExpandida) {
+    setEditingId(t.id)
+    setForm({
+      nome: t.nome,
+      cnpj: formatCNPJ(t.cnpj),
+      contato_email: t.contato_email || '',
+      contato_telefone: t.contato_telefone || '',
+    })
+    setShowForm(true)
+  }
+
   async function salvarTransportadora() {
     if (!form.nome.trim() || !form.cnpj.trim()) {
       toast.error('Nome e CNPJ são obrigatórios')
@@ -71,16 +84,33 @@ export default function TransportadorasPage() {
       return
     }
     setSaving(true)
-    const { error } = await supabase.from('transportadoras_cadastradas').insert({
+    const cleanCnpj = form.cnpj.replace(/\D/g, '')
+    const payload = {
       nome: form.nome.trim(),
-      cnpj: form.cnpj,
+      cnpj: cleanCnpj,
       contato_email: form.contato_email.trim() || null,
       contato_telefone: form.contato_telefone.trim() || null,
-    })
+    }
+
+    let error
+    if (editingId) {
+      const { error: err } = await supabase
+        .from('transportadoras_cadastradas')
+        .update(payload)
+        .eq('id', editingId)
+      error = err
+    } else {
+      const { error: err } = await supabase
+        .from('transportadoras_cadastradas')
+        .insert(payload)
+      error = err
+    }
+
     setSaving(false)
     if (error) { toast.error('Erro ao salvar: ' + error.message); return }
-    toast.success('Transportadora cadastrada!')
+    toast.success(editingId ? 'Transportadora atualizada!' : 'Transportadora cadastrada!')
     setForm(emptyTransp())
+    setEditingId(null)
     setShowForm(false)
     load()
   }
@@ -115,6 +145,65 @@ export default function TransportadorasPage() {
     await supabase.from('motoristas_cadastrados').update({ ativo: false }).eq('id', id)
     toast.success('Motorista removido')
     load()
+  }
+
+  async function handleFotoUpload(mId: string, file: File) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = async () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        const maxDim = 1000
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width)
+            width = maxDim
+          } else {
+            width = Math.round((width * maxDim) / height)
+            height = maxDim
+          }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0, width, height)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.70)
+        
+        // Save to Supabase
+        const { error } = await supabase
+          .from('motoristas_cadastrados')
+          .update({ foto_documento: compressedBase64 })
+          .eq('id', mId)
+          
+        if (error) {
+          toast.error('Erro ao salvar documento: ' + error.message)
+        } else {
+          toast.success('Documento salvo!')
+          load()
+        }
+      }
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  async function removerFoto(mId: string) {
+    if (!confirm('Deseja remover o documento cadastrado para este motorista?')) return
+    const { error } = await supabase
+      .from('motoristas_cadastrados')
+      .update({ foto_documento: null })
+      .eq('id', mId)
+      
+    if (error) {
+      toast.error('Erro ao remover documento: ' + error.message)
+    } else {
+      toast.success('Documento removido!')
+      setViewingPhoto(null)
+      load()
+    }
   }
 
   async function adicionarVeiculo(transportadora_id: string) {
@@ -154,7 +243,7 @@ export default function TransportadorasPage() {
 
         {showForm && (
           <div className="form-card" style={{ marginBottom: 20 }}>
-            <div className="section-title">Nova Transportadora</div>
+            <div className="section-title">{editingId ? 'Editar Transportadora' : 'Nova Transportadora'}</div>
             <div className="field-row">
               <div className="field">
                 <label>Razão Social *</label>
@@ -195,9 +284,9 @@ export default function TransportadorasPage() {
               </div>
             </div>
             <div className="form-actions" style={{ marginTop: 16 }}>
-              <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button className="btn-secondary" onClick={() => { setShowForm(false); setForm(emptyTransp()); setEditingId(null); }}>Cancelar</button>
               <button className="btn-primary" onClick={salvarTransportadora} disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar Transportadora'}
+                {saving ? 'Salvando...' : editingId ? 'Atualizar Transportadora' : 'Salvar Transportadora'}
               </button>
             </div>
           </div>
@@ -229,12 +318,20 @@ export default function TransportadorasPage() {
                     <Truck size={18} color="#2563eb" />
                     <div>
                       <div className="transp-nome">{t.nome}</div>
-                      <div className="transp-cnpj">{t.cnpj}</div>
+                      <div className="transp-cnpj">{formatCNPJ(t.cnpj)}</div>
                       {t.contato_email && <div className="transp-cnpj">{t.contato_email}</div>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span className="transp-badge">{t.motoristas.length} mot. · {t.veiculos.length} veíc.</span>
+                    <button
+                      className="btn-icon-sm"
+                      onClick={e => { e.stopPropagation(); iniciarEdicao(t) }}
+                      title="Editar"
+                      style={{ color: 'var(--primary)' }}
+                    >
+                      <Pencil size={14} />
+                    </button>
                     <button
                       className="btn-icon-sm danger"
                       onClick={e => { e.stopPropagation(); excluirTransportadora(t.id) }}
@@ -269,12 +366,43 @@ export default function TransportadorasPage() {
                           <div key={m.id} className="transp-subitem">
                             <div>
                               <strong>{m.nome}</strong>
-                              {m.cpf && <span className="muted"> · CPF: {m.cpf}</span>}
-                              {m.rg && <span className="muted"> · RG: {m.rg}</span>}
+                              {m.cpf && <span className="muted"> · CPF: {formatCPF(m.cpf)}</span>}
+                              {m.rg && <span className="muted"> · RG: {formatRG(m.rg)}</span>}
                             </div>
-                            <button className="btn-icon-sm danger" onClick={() => excluirMotorista(m.id)}>
-                              <Trash2 size={13} />
-                            </button>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              {m.foto_documento ? (
+                                <button
+                                  className="btn-icon-sm"
+                                  title="Ver Documento"
+                                  onClick={e => { e.stopPropagation(); setViewingPhoto({ mId: m.id, motoristaNome: m.nome, base64: m.foto_documento! }) }}
+                                  style={{ color: '#2563eb' }}
+                                >
+                                  <Eye size={13} />
+                                </button>
+                              ) : (
+                                <label
+                                  className="btn-icon-sm"
+                                  title="Upload Documento"
+                                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: 0, color: '#475569' }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <Camera size={13} />
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={e => {
+                                      const file = e.target.files?.[0]
+                                      if (file) handleFotoUpload(m.id, file)
+                                    }}
+                                    style={{ display: 'none' }}
+                                  />
+                                </label>
+                              )}
+                              <button className="btn-icon-sm danger" onClick={e => { e.stopPropagation(); excluirMotorista(m.id) }}>
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
                         ))}
                         <div className="transp-add-row">
@@ -352,6 +480,82 @@ export default function TransportadorasPage() {
             ))}
           </div>
         ) : null}
+
+        {viewingPhoto && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16
+          }} onClick={() => setViewingPhoto(null)}>
+            <div style={{
+              background: 'white',
+              borderRadius: 8,
+              padding: 20,
+              maxWidth: 500,
+              width: '100%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#1e293b' }}>
+                  Documento: {viewingPhoto.motoristaNome}
+                </h3>
+                <button
+                  className="btn-ghost"
+                  style={{ padding: 4, height: 'auto', width: 'auto', fontSize: 18 }}
+                  onClick={() => setViewingPhoto(null)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{
+                flex: 1,
+                overflow: 'auto',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: 250,
+                maxHeight: 400,
+                border: '1px solid #e2e8f0',
+                borderRadius: 6,
+                background: '#f8fafc'
+              }}>
+                <img
+                  src={viewingPhoto.base64}
+                  alt="Documento do Motorista"
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  className="btn-secondary danger"
+                  onClick={() => removerFoto(viewingPhoto.mId)}
+                  style={{ flex: 1 }}
+                >
+                  Remover Foto
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => setViewingPhoto(null)}
+                  style={{ flex: 1 }}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
   )
 }

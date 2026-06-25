@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { formatCNPJ, validateCNPJ, formatCPF, formatRG, formatPlaca } from '../lib/validators'
 import type { TransportadoraCadastrada, MotoristaCadastrado, VeiculoCadastrado } from '../types'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, ChevronDown, ChevronUp, Truck, User, CreditCard, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, Truck, User, CreditCard, ArrowLeft, Pencil, Camera, Eye } from 'lucide-react'
 
 type TabType = 'motoristas' | 'veiculos'
 
@@ -29,6 +29,8 @@ export default function TransportadorasPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyTransp())
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [viewingPhoto, setViewingPhoto] = useState<{ mId: string; motoristaNome: string; base64: string } | null>(null)
 
   const [motorForm, setMotorForm] = useState<Record<string, MotoristaForm>>({})
   const [veicForm, setVeicForm]   = useState<Record<string, VeiculoForm>>({})
@@ -63,6 +65,17 @@ export default function TransportadorasPage() {
     setActiveTab(prev => ({ ...prev, [id]: prev[id] ?? 'motoristas' }))
   }
 
+  function iniciarEdicao(t: TransportadoraExpandida) {
+    setEditingId(t.id)
+    setForm({
+      nome: t.nome,
+      cnpj: formatCNPJ(t.cnpj),
+      contato_email: t.contato_email || '',
+      contato_telefone: t.contato_telefone || '',
+    })
+    setShowForm(true)
+  }
+
   async function salvarTransportadora() {
     if (!form.nome.trim() || !form.cnpj.trim()) {
       toast.error('Nome e CNPJ são obrigatórios')
@@ -74,15 +87,31 @@ export default function TransportadorasPage() {
     }
     setSaving(true)
     try {
-      const { error } = await supabase.from('transportadoras_cadastradas').insert({
+      const cleanCnpj = form.cnpj.replace(/\D/g, '')
+      const payload = {
         nome: form.nome.trim(),
-        cnpj: form.cnpj,
+        cnpj: cleanCnpj,
         contato_email: form.contato_email.trim() || null,
         contato_telefone: form.contato_telefone.trim() || null,
-      })
+      }
+
+      let error
+      if (editingId) {
+        const { error: err } = await supabase
+          .from('transportadoras_cadastradas')
+          .update(payload)
+          .eq('id', editingId)
+        error = err
+      } else {
+        const { error: err } = await supabase
+          .from('transportadoras_cadastradas')
+          .insert(payload)
+        error = err
+      }
       if (error) throw error
-      toast.success('Transportadora cadastrada!')
+      toast.success(editingId ? 'Transportadora atualizada!' : 'Transportadora cadastrada!')
       setForm(emptyTransp())
+      setEditingId(null)
       setShowForm(false)
       load()
     } catch (err: any) {
@@ -138,6 +167,64 @@ export default function TransportadorasPage() {
     }
   }
 
+  async function handleFotoUpload(mId: string, file: File) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = async () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        const maxDim = 1000
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width)
+            width = maxDim
+          } else {
+            width = Math.round((width * maxDim) / height)
+            height = maxDim
+          }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0, width, height)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.70)
+        
+        try {
+          const { error } = await supabase
+            .from('motoristas_cadastrados')
+            .update({ foto_documento: compressedBase64 })
+            .eq('id', mId)
+          if (error) throw error
+          toast.success('Documento salvo!')
+          load()
+        } catch (err: any) {
+          toast.error('Erro ao salvar documento: ' + err.message)
+        }
+      }
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  async function removerFoto(mId: string) {
+    if (!confirm('Deseja remover o documento cadastrado para este motorista?')) return
+    try {
+      const { error } = await supabase
+        .from('motoristas_cadastrados')
+        .update({ foto_documento: null })
+        .eq('id', mId)
+      if (error) throw error
+      toast.success('Documento removido!')
+      setViewingPhoto(null)
+      load()
+    } catch (err: any) {
+      toast.error('Erro ao remover documento: ' + err.message)
+    }
+  }
+
   async function adicionarVeiculo(transportadora_id: string) {
     const f = veicForm[transportadora_id]
     if (!f?.modelo?.trim() || !f?.placa?.trim()) {
@@ -190,7 +277,9 @@ export default function TransportadorasPage() {
       {/* New Transportadora Form Card */}
       {showForm && (
         <div className="card no-active" style={{ border: '1px solid var(--primary)' }}>
-          <h3 className="card-title" style={{ color: 'var(--primary)', marginBottom: '12px' }}>Cadastrar Transportadora</h3>
+          <h3 className="card-title" style={{ color: 'var(--primary)', marginBottom: '12px' }}>
+            {editingId ? 'Editar Transportadora' : 'Cadastrar Transportadora'}
+          </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="form-group">
               <label>Razão Social *</label>
@@ -236,11 +325,11 @@ export default function TransportadorasPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <button className="btn btn-secondary" onClick={() => setShowForm(false)} style={{ flex: 1 }}>
+              <button className="btn btn-secondary" onClick={() => { setShowForm(false); setForm(emptyTransp()); setEditingId(null); }} style={{ flex: 1 }}>
                 Cancelar
               </button>
               <button className="btn btn-primary" onClick={salvarTransportadora} disabled={saving} style={{ flex: 1 }}>
-                {saving ? 'Salvando...' : 'Salvar'}
+                {saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}
               </button>
             </div>
           </div>
@@ -291,11 +380,18 @@ export default function TransportadorasPage() {
                     <Truck size={20} className="text-primary" />
                     <div>
                       <span className="font-bold" style={{ fontSize: '15px', display: 'block' }}>{t.nome}</span>
-                      <span className="text-muted" style={{ fontSize: '12px' }}>CNPJ: {t.cnpj}</span>
+                      <span className="text-muted" style={{ fontSize: '12px' }}>CNPJ: {formatCNPJ(t.cnpj)}</span>
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={e => e.stopPropagation()}>
+                    <button
+                      className="header-btn text-primary"
+                      onClick={() => iniciarEdicao(t)}
+                      style={{ width: '32px', height: '32px' }}
+                    >
+                      <Pencil size={14} />
+                    </button>
                     <button
                       className="header-btn text-danger"
                       onClick={() => excluirTransportadora(t.id)}
@@ -435,13 +531,41 @@ export default function TransportadorasPage() {
                                   <div>
                                     <span className="font-bold" style={{ fontSize: '13px', display: 'block' }}>{m.nome}</span>
                                     <span className="text-muted" style={{ fontSize: '11px' }}>
-                                      {m.cpf ? `CPF: ${m.cpf}` : 'Sem CPF'} {m.rg && `· RG: ${m.rg}`}
+                                      {m.cpf ? `CPF: ${formatCPF(m.cpf)}` : 'Sem CPF'} {m.rg && `· RG: ${formatRG(m.rg)}`}
                                     </span>
                                   </div>
                                 </div>
-                                <button className="header-btn text-danger" onClick={() => excluirMotorista(m.id)} style={{ width: '28px', height: '28px' }}>
-                                  <Trash2 size={12} />
-                                </button>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  {m.foto_documento ? (
+                                    <button
+                                      className="header-btn text-primary"
+                                      onClick={() => setViewingPhoto({ mId: m.id, motoristaNome: m.nome, base64: m.foto_documento! })}
+                                      style={{ width: '28px', height: '28px' }}
+                                    >
+                                      <Eye size={13} />
+                                    </button>
+                                  ) : (
+                                    <label
+                                      className="header-btn text-muted"
+                                      style={{ width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0 }}
+                                    >
+                                      <Camera size={13} />
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        onChange={e => {
+                                          const file = e.target.files?.[0]
+                                          if (file) handleFotoUpload(m.id, file)
+                                        }}
+                                        style={{ display: 'none' }}
+                                      />
+                                    </label>
+                                  )}
+                                  <button className="header-btn text-danger" onClick={() => excluirMotorista(m.id)} style={{ width: '28px', height: '28px' }}>
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -530,6 +654,81 @@ export default function TransportadorasPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {viewingPhoto && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }} onClick={() => setViewingPhoto(null)}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '20px',
+            maxWidth: '100%',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="font-bold" style={{ margin: 0, fontSize: '15px', color: '#1e293b' }}>
+                Documento: {viewingPhoto.motoristaNome}
+              </h3>
+              <button
+                style={{ background: 'transparent', border: 'none', fontSize: '18px', padding: '4px', cursor: 'pointer' }}
+                onClick={() => setViewingPhoto(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: '200px',
+              maxHeight: '350px',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              background: '#f8fafc'
+            }}>
+              <img
+                src={viewingPhoto.base64}
+                alt="Documento do Motorista"
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => removerFoto(viewingPhoto.mId)}
+                style={{ flex: 1, borderColor: 'var(--danger)', color: 'var(--danger)', height: '38px', fontSize: '13px' }}
+              >
+                Remover Foto
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => setViewingPhoto(null)}
+                style={{ flex: 1, height: '38px', fontSize: '13px' }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
