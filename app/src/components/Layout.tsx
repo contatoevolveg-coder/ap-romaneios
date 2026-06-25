@@ -19,8 +19,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault()
     setPassError('')
-    if (newPassword.length < 6) {
-      setPassError('A senha deve ter pelo menos 6 caracteres.')
+    if (newPassword.length < 4) {
+      setPassError('A senha deve ter pelo menos 4 caracteres.')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -29,7 +29,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     }
     setChangingPass(true)
     try {
-      const { error: authErr } = await supabase.auth.updateUser({ password: newPassword })
+      const transformedPassword = newPassword.length < 6 ? newPassword + '_roma' : newPassword
+      const { error: authErr } = await supabase.auth.updateUser({ password: transformedPassword })
       if (authErr) throw authErr
       
       const { error: dbErr } = await supabase
@@ -95,7 +96,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 type="password"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 4 caracteres"
                 required
                 autoFocus
               />

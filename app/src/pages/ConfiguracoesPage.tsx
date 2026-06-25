@@ -60,9 +60,10 @@ export default function ConfiguracoesPage() {
     e.preventDefault()
     setCreatingUser(true)
     setUserMsg('')
+    const transformedPassword = newPassword.length < 6 ? newPassword + '_roma' : newPassword
     const { error } = await supabase.auth.signUp({
       email: newEmail,
-      password: newPassword,
+      password: transformedPassword,
       options: {
         data: {
           nome: newNome,
@@ -263,7 +264,7 @@ export default function ConfiguracoesPage() {
               </div>
               <div className="field">
                 <label>Senha Temporária</label>
-                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} placeholder="Mínimo 6 caracteres" />
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={4} placeholder="Mínimo 4 caracteres" />
               </div>
               {userMsg && <div className={userMsg.startsWith('Erro') ? 'error-msg' : 'success-msg'}>{userMsg}</div>}
               <button type="submit" className="btn-primary" disabled={creatingUser}>

@@ -25,7 +25,8 @@ export default function LoginPage() {
         return
       }
 
-      const { error: signInError } = await signIn(email, password)
+      const transformedPassword = password.length < 6 ? password + '_roma' : password
+      const { error: signInError } = await signIn(email, transformedPassword)
       if (signInError) {
         setError('Usuário ou senha incorretos.')
       } else {
