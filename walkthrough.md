@@ -115,3 +115,15 @@ Este documento resume as implementações realizadas na versão móvel (`/mobile
 *   **Deploy & Repositório**:
     *   Realizado novo build de ambos os apps e deploy para a Vercel.
     *   Commits criados e alterações enviadas para a branch `main` no GitHub.
+
+---
+
+## 8. Página de Edição de Romaneio no Mobile
+
+*   **Página Criada (`EditarRomaneioPage.tsx` [NEW])**: Implementada a página de edição de romaneio na versão móvel. A interface foi otimizada para telas de smartphones, evitando uma tabela pesada e utilizando um layout de lista de cartões (cards) responsivo.
+*   **Fluxo de Edição de Notas**: Cada nota do romaneio possui botões de Editar e Excluir. Ao clicar em editar, um modal elegante do tipo Bottom Sheet abre com o formulário específico daquela nota (NF-e, Destinatário, Emitente, Depositante e Volumes).
+*   **Bipagem, XML e WMS**: A página móvel de edição traz suporte completo a bipagem por câmera, importação múltipla de arquivos XML e consulta integrada ao WMS para preenchimento ágil.
+*   **Integração e Roteamento**: A rota `/romaneios/:id/editar` foi devidamente protegida e adicionada ao mobile `App.tsx`. Na tela de detalhes (`RomaneioDetalhePage.tsx`), um botão de Editar (ícone de lápis) foi inserido no cabeçalho do romaneio para administradores.
+*   **Redeploy**: Compilado e atualizado na Vercel:
+    *   **Desktop**: [https://app-one-kappa-31.vercel.app](https://app-one-kappa-31.vercel.app)
+    *   **Mobile**: [https://mobile-gamma-lovat.vercel.app](https://mobile-gamma-lovat.vercel.app)
