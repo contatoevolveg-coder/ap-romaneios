@@ -211,7 +211,7 @@ export default function RomaneioDetalhePage() {
   }
 
   async function renovarLink() {
-    if (!isMaster || renewingToken) return
+    if (renewingToken) return
     setRenewingToken(true)
     const novaExpiracao = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     const { error } = await supabase.from('romaneios').update({ token_expira_em: novaExpiracao }).eq('id', id!)
@@ -484,18 +484,18 @@ export default function RomaneioDetalhePage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {canEdit && isMaster && (
+          {canEdit && (
             <button className="btn-secondary" onClick={() => navigate(`/romaneios/${id}/editar`)}><Pencil size={15} /> Editar</button>
           )}
           <button className="btn-secondary" onClick={copiarLink}><Copy size={15} /> Link Transportadora</button>
-          {isMaster && expiryInfo && (
+          {expiryInfo && (
             <button className="btn-secondary" onClick={renovarLink} disabled={renewingToken} title="Estender link por mais 7 dias">
               <RefreshCw size={15} /> {renewingToken ? 'Renovando...' : 'Renovar link'}
             </button>
           )}
           <button className="btn-secondary" onClick={() => navigate(`/romaneios/${id}/bipar`)}><ScanLine size={15} /> Bipar Saída</button>
           <button className="btn-secondary" onClick={() => navigate(`/romaneios/${id}/imprimir`)}><Printer size={15} /> Imprimir</button>
-          {canEdit && isMaster && (
+          {canEdit && (
             <>
               <button
                 className="btn-success"
@@ -509,20 +509,7 @@ export default function RomaneioDetalhePage() {
               <button className="btn-danger" onClick={() => pedirConfirmacao('Cancelado')}><XCircle size={15} /> Cancelar</button>
             </>
           )}
-          {canEdit && !isMaster && romaneio.status === 'Preenchido' && (
-            <button
-              className="btn-success"
-              onClick={() => pedirConfirmacao('Liberado')}
-              disabled={!temAssinatura}
-              title={temAssinatura ? undefined : 'Aguardando assinatura do motorista'}
-              style={!temAssinatura ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
-            >
-              <CheckCircle size={15} /> Liberar
-            </button>
-          )}
-          {isMaster && (
-            <button className="btn-danger" onClick={moverParaLixeira} title="Mover para lixeira"><Trash2 size={15} /> Lixeira</button>
-          )}
+          <button className="btn-danger" onClick={moverParaLixeira} title="Mover para lixeira"><Trash2 size={15} /> Lixeira</button>
         </div>
       </div>
 

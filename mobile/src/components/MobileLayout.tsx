@@ -224,18 +224,14 @@ export default function MobileLayout({ children }: { children: ReactNode }) {
             <PlusCircle />
             <span>Criar Romaneio</span>
           </Link>
-          {isMaster && (
-            <>
-              <Link to="/transportadoras" className={`drawer-item ${pathname === '/transportadoras' ? 'active' : ''}`} onClick={handleLinkClick}>
-                <Building2 />
-                <span>Transportadoras</span>
-              </Link>
-              <Link to="/lixeira" className={`drawer-item ${pathname === '/lixeira' ? 'active' : ''}`} onClick={handleLinkClick}>
-                <Trash2 />
-                <span>Lixeira</span>
-              </Link>
-            </>
-          )}
+          <Link to="/transportadoras" className={`drawer-item ${pathname === '/transportadoras' ? 'active' : ''}`} onClick={handleLinkClick}>
+            <Building2 />
+            <span>Transportadoras</span>
+          </Link>
+          <Link to="/lixeira" className={`drawer-item ${pathname === '/lixeira' ? 'active' : ''}`} onClick={handleLinkClick}>
+            <Trash2 />
+            <span>Lixeira</span>
+          </Link>
           <Link to="/configuracoes" className={`drawer-item ${pathname === '/configuracoes' ? 'active' : ''}`} onClick={handleLinkClick}>
             <Settings />
             <span>Configurações</span>

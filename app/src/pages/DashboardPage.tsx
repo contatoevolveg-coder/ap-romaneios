@@ -315,11 +315,9 @@ export default function DashboardPage() {
                         <button className="btn-icon-sm" title="Imprimir romaneio" onClick={() => navigate(`/romaneios/${r.id}/imprimir`)}>
                           <Printer size={14} />
                         </button>
-                        {isMaster && (
-                          <button className="btn-icon-sm danger" title="Mover para lixeira" onClick={e => moverParaLixeira(e, r.id)}>
-                            <Trash2 size={14} />
-                          </button>
-                        )}
+                        <button className="btn-icon-sm danger" title="Mover para lixeira" onClick={e => moverParaLixeira(e, r.id)}>
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>

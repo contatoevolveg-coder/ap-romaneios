@@ -137,9 +137,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         <nav className="sidebar-nav">
           {navItem('/', <FileText size={18} />, 'Romaneios')}
           {navItem('/romaneios/novo', <PlusCircle size={18} />, 'Novo Romaneio')}
-          {isMaster && navItem('/transportadoras', <Building2 size={18} />, 'Transportadoras')}
-          {isMaster && navItem('/lixeira', <Trash2 size={18} />, 'Lixeira')}
-          {isMaster && navItem('/configuracoes', <Settings size={18} />, 'Configurações')}
+          {navItem('/transportadoras', <Building2 size={18} />, 'Transportadoras')}
+          {navItem('/lixeira', <Trash2 size={18} />, 'Lixeira')}
+          {navItem('/configuracoes', <Settings size={18} />, 'Configurações')}
         </nav>
 
         <div className="sidebar-footer">

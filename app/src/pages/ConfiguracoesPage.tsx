@@ -7,7 +7,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import { useAuth } from '../context/AuthContext'
 
 export default function ConfiguracoesPage() {
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, isMaster } = useAuth()
   const [config, setConfig] = useState<Partial<ConfigRemetente>>({})
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [savingConfig, setSavingConfig] = useState(false)
@@ -177,7 +177,7 @@ export default function ConfiguracoesPage() {
           </form>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {isMaster && <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card">
             <div className="card-title">Usuários do Sistema</div>
             <table className="table">
@@ -272,7 +272,7 @@ export default function ConfiguracoesPage() {
               </button>
             </form>
           </div>
-        </div>
+        </div>}
       </div>
 
 

@@ -458,7 +458,7 @@ export default function RomaneioDetalhePage() {
             {romaneio.status}
           </span>
         </div>
-        {isMaster && canEdit && (
+        {canEdit && (
           <button
             className="header-btn text-primary"
             onClick={() => navigate(`/romaneios/${romaneio.id}/editar`)}
@@ -468,16 +468,14 @@ export default function RomaneioDetalhePage() {
             <Pencil size={20} />
           </button>
         )}
-        {isMaster && (
-          <button
-            className="header-btn text-danger"
-            onClick={moverParaLixeira}
-            title="Mover para lixeira"
-            style={{ width: '40px', height: '40px' }}
-          >
-            <Trash2 size={20} />
-          </button>
-        )}
+        <button
+          className="header-btn text-danger"
+          onClick={moverParaLixeira}
+          title="Mover para lixeira"
+          style={{ width: '40px', height: '40px' }}
+        >
+          <Trash2 size={20} />
+        </button>
       </div>
 
       {/* Progress Card */}

@@ -27,10 +27,10 @@ export default function App() {
           <Route path="/romaneios/:id" element={<ProtectedRoute><RomaneioDetalhePage /></ProtectedRoute>} />
           <Route path="/romaneios/:id/imprimir" element={<ProtectedRoute><ImpressaoPage /></ProtectedRoute>} />
           <Route path="/romaneios/:id/bipar" element={<ProtectedRoute><BipadorPage /></ProtectedRoute>} />
-          <Route path="/romaneios/:id/editar" element={<ProtectedRoute masterOnly><EditarRomaneioPage /></ProtectedRoute>} />
-          <Route path="/lixeira" element={<ProtectedRoute masterOnly><LixeiraPage /></ProtectedRoute>} />
-          <Route path="/transportadoras" element={<ProtectedRoute masterOnly><TransportadorasPage /></ProtectedRoute>} />
-          <Route path="/configuracoes" element={<ProtectedRoute masterOnly><ConfiguracoesPage /></ProtectedRoute>} />
+          <Route path="/romaneios/:id/editar" element={<ProtectedRoute><EditarRomaneioPage /></ProtectedRoute>} />
+          <Route path="/lixeira" element={<ProtectedRoute><LixeiraPage /></ProtectedRoute>} />
+          <Route path="/transportadoras" element={<ProtectedRoute><TransportadorasPage /></ProtectedRoute>} />
+          <Route path="/configuracoes" element={<ProtectedRoute><ConfiguracoesPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
