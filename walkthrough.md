@@ -184,9 +184,12 @@ Este documento resume as implementações realizadas na versão móvel (`/mobile
 
 ## 13. Login por Usuário, Primeiro Acesso e Gestão de Usuários (Master)
 
-*   **Login por Nome de Usuário**:
+*   **Login por Nome de Usuário (Insensível a Espaços e Pontos)**:
     *   Substituído o campo de E-mail pelo campo de Usuário nas telas de Login do Desktop e Mobile.
-    *   Implementada chamada à RPC `get_email_by_username` para resolver de forma segura e case-insensitive o nome de usuário em e-mail correspondente antes de fazer o login via Supabase Auth.
+    *   Implementada chamada à RPC `get_email_by_username` para resolver o nome de usuário de forma insensível a maiúsculas/minúsculas, e ignorando espaços ou pontos (`.` vs ` `). Por exemplo, um usuário cadastrado como `Erik.Barros` consegue realizar o login digitando `Erik Barros` ou `erikbarros`.
+*   **Auto-Confirmação de Contas**:
+    *   Instalada a trigger `trg_confirm_new_user_email` (`BEFORE INSERT ON auth.users`) para preencher automaticamente o campo `email_confirmed_at = NOW()` e marcar `email_verified = true` no momento da criação da conta, garantindo que novos colaboradores criados pelo Master consigam logar de imediato sem ficar pendentes de confirmação de e-mail.
+    *   Realizada migração para confirmar retroativamente todos os e-mails de contas de usuários criadas que estavam com o status pendente no Supabase.
 *   **Primeiro Acesso (Redefinição de Senha Obrigatória)**:
     *   Ambos os layouts ([Layout.tsx](file:///C:/Users/Logistica/Desktop/Ap%20Romaneio/app/src/components/Layout.tsx) e [MobileLayout.tsx](file:///C:/Users/Logistica/Desktop/Ap%20Romaneio/mobile/src/components/MobileLayout.tsx)) agora interceptam e exibem uma tela obrigatória para redefinição de senha caso o perfil do usuário logado possua `senha_alterada = false`.
     *   A tela exige que o usuário defina e confirme sua nova senha pessoal (mínimo de 6 caracteres), atualizando-a via Supabase Auth e salvando o perfil com `senha_alterada = true` e `senha_temporaria = null`.
