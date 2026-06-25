@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioItem, RomaneioStatus } from '../types'
 import { useAuth } from '../context/AuthContext'
-import { ArrowLeft, Share2, Camera, Trash2, CheckCircle, Truck, User, CreditCard, PenLine, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Share2, Camera, Trash2, CheckCircle, Truck, User, CreditCard, PenLine, AlertTriangle, Pencil } from 'lucide-react'
 
 // Simple mobile signature pad using standard canvas touch events
 function SignaturePad({ onCapture }: { onCapture: (data: string | null) => void }) {
@@ -454,6 +454,16 @@ export default function RomaneioDetalhePage() {
             {romaneio.status}
           </span>
         </div>
+        {isMaster && canEdit && (
+          <button
+            className="header-btn text-primary"
+            onClick={() => navigate(`/romaneios/${romaneio.id}/editar`)}
+            title="Editar romaneio"
+            style={{ width: '40px', height: '40px', color: 'var(--primary)' }}
+          >
+            <Pencil size={20} />
+          </button>
+        )}
         {isMaster && (
           <button
             className="header-btn text-danger"
