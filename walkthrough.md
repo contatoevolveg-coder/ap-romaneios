@@ -180,6 +180,21 @@ Este documento resume as implementações realizadas na versão móvel (`/mobile
     *   **Desktop**: [https://app-one-kappa-31.vercel.app](https://app-one-kappa-31.vercel.app)
     *   **Mobile**: [https://mobile-gamma-lovat.vercel.app](https://mobile-gamma-lovat.vercel.app)
 
+---
 
+## 13. Login por Usuário, Primeiro Acesso e Gestão de Usuários (Master)
 
-
+*   **Login por Nome de Usuário**:
+    *   Substituído o campo de E-mail pelo campo de Usuário nas telas de Login do Desktop e Mobile.
+    *   Implementada chamada à RPC `get_email_by_username` para resolver de forma segura e case-insensitive o nome de usuário em e-mail correspondente antes de fazer o login via Supabase Auth.
+*   **Primeiro Acesso (Redefinição de Senha Obrigatória)**:
+    *   Ambos os layouts ([Layout.tsx](file:///C:/Users/Logistica/Desktop/Ap%20Romaneio/app/src/components/Layout.tsx) e [MobileLayout.tsx](file:///C:/Users/Logistica/Desktop/Ap%20Romaneio/mobile/src/components/MobileLayout.tsx)) agora interceptam e exibem uma tela obrigatória para redefinição de senha caso o perfil do usuário logado possua `senha_alterada = false`.
+    *   A tela exige que o usuário defina e confirme sua nova senha pessoal (mínimo de 6 caracteres), atualizando-a via Supabase Auth e salvando o perfil com `senha_alterada = true` e `senha_temporaria = null`.
+*   **Gestão de Usuários pelo Master**:
+    *   **Visualização de Senhas**: Exibição da coluna "Senha Inicial" na tabela de usuários. Exibe a senha temporária criada se a senha ainda não foi alterada. Se já foi alterada, exibe uma etiqueta verde "Pessoal".
+    *   **Editar Usuário**: Adicionado botão de Lápis (modal de edição) que permite atualizar o Nome, E-mail e Nível de Acesso (chamando a RPC `admin_update_user`).
+    *   **Excluir Usuário**: Adicionado botão de Lixeira que permite excluir o usuário da base de dados e do Supabase Auth por meio da RPC `admin_delete_user` (desabilitado para o próprio usuário logado).
+*   **Deploy de Produção**:
+    *   Compilação e build sem erros no Desktop e Mobile.
+    *   **URL Desktop**: [https://app-one-kappa-31.vercel.app](https://app-one-kappa-31.vercel.app)
+    *   **URL Mobile**: [https://mobile-gamma-lovat.vercel.app](https://mobile-gamma-lovat.vercel.app)
