@@ -134,7 +134,7 @@ function SignaturePad({ onCapture }: { onCapture: (data: string | null) => void 
 export default function RomaneioDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  useAuth()
+  const { isMaster } = useAuth()
   
   const [romaneio, setRomaneio] = useState<Romaneio | null>(null)
   const [itens, setItens] = useState<RomaneioItem[]>([])
@@ -364,6 +364,22 @@ export default function RomaneioDetalhePage() {
     }
   }
 
+  // Move romaneio to trash (Lixeira)
+  const moverParaLixeira = async () => {
+    if (!confirm('Mover este romaneio para a lixeira? Você pode restaurá-lo depois.')) return
+    try {
+      const { error } = await supabase
+        .from('romaneios')
+        .update({ excluido_em: new Date().toISOString() })
+        .eq('id', id!)
+      if (error) throw error
+      toast.success('Romaneio movido para a lixeira')
+      navigate('/')
+    } catch {
+      toast.error('Erro ao excluir')
+    }
+  }
+
   // Update Status (Liberar / Cancelar)
   const handleUpdateStatus = async (status: RomaneioStatus) => {
     if (!id || !romaneio) return
@@ -438,6 +454,16 @@ export default function RomaneioDetalhePage() {
             {romaneio.status}
           </span>
         </div>
+        {isMaster && (
+          <button
+            className="header-btn text-danger"
+            onClick={moverParaLixeira}
+            title="Mover para lixeira"
+            style={{ width: '40px', height: '40px' }}
+          >
+            <Trash2 size={20} />
+          </button>
+        )}
       </div>
 
       {/* Progress Card */}
