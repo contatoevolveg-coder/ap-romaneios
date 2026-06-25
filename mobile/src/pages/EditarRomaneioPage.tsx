@@ -30,6 +30,8 @@ export default function EditarRomaneioPage() {
   // Scanner States
   const [scannerInput, setScannerInput] = useState('')
   const [cameraActive, setCameraActive] = useState(false)
+  const [torchActive, setTorchActive] = useState(false)
+  const [zoomActive, setZoomActive] = useState(false)
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null)
   const lastProcessedRef = useRef<string>('')
 
@@ -79,6 +81,36 @@ export default function EditarRomaneioPage() {
     }
   }
 
+  // Reset controls when camera is closed
+  useEffect(() => {
+    if (!cameraActive) {
+      setTorchActive(false)
+      setZoomActive(false)
+    }
+  }, [cameraActive])
+
+  // Apply constraints (torch and zoom) dynamically
+  useEffect(() => {
+    const applyConstraints = async () => {
+      if (cameraActive && html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+        try {
+          await html5QrcodeRef.current.applyVideoConstraints({
+            advanced: [
+              {
+                torch: torchActive,
+                zoom: zoomActive ? 2.0 : 1.0
+              } as any
+            ]
+          })
+        } catch (err) {
+          console.warn('Erro ao aplicar constraints de vídeo (lanterna/zoom):', err)
+        }
+      }
+    }
+    const timeout = setTimeout(applyConstraints, 200)
+    return () => clearTimeout(timeout)
+  }, [torchActive, zoomActive, cameraActive])
+
   // Camera scanner lifecycle
   useEffect(() => {
     if (!cameraActive) {
@@ -99,7 +131,18 @@ export default function EditarRomaneioPage() {
         if (isMounted) handleBarcodeProcessed(decodedText, true)
       },
       () => {}
-    ).catch(err => {
+    ).then(() => {
+      if (isMounted) {
+        html5Qrcode.applyVideoConstraints({
+          advanced: [
+            {
+              torch: torchActive,
+              zoom: zoomActive ? 2.0 : 1.0
+            } as any
+          ]
+        }).catch(err => console.warn('Erro ao aplicar constraints iniciais:', err))
+      }
+    }).catch(err => {
       console.error('Falha ao iniciar camera:', err)
       if (isMounted) {
         toast.error('Não foi possível acessar a câmera.')
@@ -529,11 +572,29 @@ export default function EditarRomaneioPage() {
 
         <div style={{ display: cameraActive ? 'block' : 'none', marginTop: '12px', position: 'relative' }}>
           <div id="editar-romaneio-scanner" style={{ width: '100%', minHeight: '200px', background: '#000', borderRadius: '8px', overflow: 'hidden' }} />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <button
+              type="button"
+              className={`btn ${torchActive ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setTorchActive(prev => !prev)}
+              style={{ flex: 1, height: '36px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', border: 'none', borderRadius: '6px' }}
+            >
+              <span>{torchActive ? '🔦 Lanterna Ativa' : '🔦 Lanterna'}</span>
+            </button>
+            <button
+              type="button"
+              className={`btn ${zoomActive ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setZoomActive(prev => !prev)}
+              style={{ flex: 1, height: '36px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', border: 'none', borderRadius: '6px' }}
+            >
+              <span>{zoomActive ? '🔍 Zoom 2x' : '🔍 Zoom 1x'}</span>
+            </button>
+          </div>
           <button
             type="button"
             className="btn btn-danger"
             onClick={() => setCameraActive(false)}
-            style={{ marginTop: '8px', height: '36px', fontSize: '13px' }}
+            style={{ marginTop: '8px', height: '36px', fontSize: '13px', width: '100%' }}
           >
             Fechar Câmera
           </button>

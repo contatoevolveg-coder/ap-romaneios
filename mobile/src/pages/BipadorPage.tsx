@@ -19,6 +19,8 @@ export default function BipadorPage() {
   const [cameraActive, setCameraActive] = useState(true)
   const [scannerReady, setScannerReady] = useState(false)
   const [lastScanned, setLastScanned] = useState<{ nfe: string; success: boolean; message: string } | null>(null)
+  const [torchActive, setTorchActive] = useState(false)
+  const [zoomActive, setZoomActive] = useState(false)
 
   // Manual entry states
   const [manualCode, setManualCode] = useState('')
@@ -120,6 +122,36 @@ export default function BipadorPage() {
     setSubmittingManual(false)
   }
 
+  // Reset controls when camera is closed
+  useEffect(() => {
+    if (!cameraActive) {
+      setTorchActive(false)
+      setZoomActive(false)
+    }
+  }, [cameraActive])
+
+  // Apply constraints (torch and zoom) dynamically
+  useEffect(() => {
+    const applyConstraints = async () => {
+      if (cameraActive && html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+        try {
+          await html5QrcodeRef.current.applyVideoConstraints({
+            advanced: [
+              {
+                torch: torchActive,
+                zoom: zoomActive ? 2.0 : 1.0
+              } as any
+            ]
+          })
+        } catch (err) {
+          console.warn('Erro ao aplicar constraints de vídeo (lanterna/zoom):', err)
+        }
+      }
+    }
+    const timeout = setTimeout(applyConstraints, 200)
+    return () => clearTimeout(timeout)
+  }, [torchActive, zoomActive, cameraActive])
+
   // Camera life cycle handler
   useEffect(() => {
     if (!id || !cameraActive || loading) return
@@ -147,6 +179,19 @@ export default function BipadorPage() {
             // ignore verbose log warnings
           }
         )
+        // Apply initial constraints
+        try {
+          await html5Qrcode.applyVideoConstraints({
+            advanced: [
+              {
+                torch: torchActive,
+                zoom: zoomActive ? 2.0 : 1.0
+              } as any
+            ]
+          })
+        } catch (e) {
+          console.warn('Erro ao aplicar constraints iniciais:', e)
+        }
         if (isMounted) setScannerReady(true)
       } catch (err) {
         console.warn('Falha ao acessar a câmera traseira, tentando qualquer câmera:', err)
@@ -164,6 +209,19 @@ export default function BipadorPage() {
             },
             () => {}
           )
+          // Apply initial constraints
+          try {
+            await html5Qrcode.applyVideoConstraints({
+              advanced: [
+                {
+                  torch: torchActive,
+                  zoom: zoomActive ? 2.0 : 1.0
+                } as any
+              ]
+            })
+          } catch (e) {
+            console.warn('Erro ao aplicar constraints iniciais:', e)
+          }
           if (isMounted) setScannerReady(true)
         } catch (innerErr) {
           toast.error('Não foi possível ativar o leitor de câmera.')
@@ -268,18 +326,50 @@ export default function BipadorPage() {
 
           {/* Custom Overlay Scanning Target */}
           {scannerReady && (
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '80%',
-              height: '80px',
-              border: '2px dashed var(--primary)',
-              borderRadius: '8px',
-              pointerEvents: 'none',
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
-            }} />
+            <>
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '80%',
+                height: '80px',
+                border: '2px dashed var(--primary)',
+                borderRadius: '8px',
+                pointerEvents: 'none',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+              }} />
+
+              {/* Floating Camera Controls */}
+              <div style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                gap: '8px',
+                zIndex: 10,
+                width: '90%',
+                maxWidth: '300px'
+              }}>
+                <button
+                  type="button"
+                  className={`btn ${torchActive ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setTorchActive(prev => !prev)}
+                  style={{ flex: 1, height: '36px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', border: 'none', borderRadius: '6px', opacity: 0.9 }}
+                >
+                  <span>{torchActive ? '🔦 Lanterna Ativa' : '🔦 Lanterna'}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${zoomActive ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setZoomActive(prev => !prev)}
+                  style={{ flex: 1, height: '36px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', border: 'none', borderRadius: '6px', opacity: 0.9 }}
+                >
+                  <span>{zoomActive ? '🔍 Zoom 2x' : '🔍 Zoom 1x'}</span>
+                </button>
+              </div>
+            </>
           )}
         </div>
 
