@@ -154,4 +154,16 @@ Este documento resume as implementações realizadas na versão móvel (`/mobile
 *   **Redeploy**: Feito o build e deploy na Vercel:
     *   **Mobile**: [https://mobile-gamma-lovat.vercel.app](https://mobile-gamma-lovat.vercel.app)
 
+---
+
+## 11. Filtro de Transportadoras no Novo Romaneio Mobile
+
+*   **Abas de Seleção**: Inserido um seletor do tipo abas/pills (**Recorrentes** e **Outras**) na seção de *Configurações Básicas* da página [NovoRomaneioPage.tsx](file:///C:/Users/Logistica/Desktop/Ap%20Romaneio/mobile/src/pages/NovoRomaneioPage.tsx).
+*   **Filtragem Inteligente**:
+    *   Ao alternar as abas, a listagem do dropdown de transportadoras é filtrada em tempo real para exibir apenas os registros da categoria selecionada.
+    *   **Bypass de Seleção**: Caso uma transportadora já esteja selecionada no dropdown, ela permanece visível na lista mesmo que o usuário mude para a outra aba, evitando que o campo selecionado desapareça acidentalmente.
+*   **Redeploy**: Código buildado e atualizado na Vercel:
+    *   **Mobile**: [https://mobile-gamma-lovat.vercel.app](https://mobile-gamma-lovat.vercel.app)
+
+
 
