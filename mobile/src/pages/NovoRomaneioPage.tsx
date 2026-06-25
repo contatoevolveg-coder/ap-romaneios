@@ -76,16 +76,9 @@ export default function NovoRomaneioPage() {
 
   // Start/Stop camera scanner
   useEffect(() => {
-    if (!cameraActive) {
-      if (html5QrcodeRef.current) {
-        if (html5QrcodeRef.current.isScanning) {
-          html5QrcodeRef.current.stop().catch(console.error)
-        }
-        html5QrcodeRef.current = null
-      }
-      return
-    }
+    if (!cameraActive) return
 
+    let isMounted = true
     const html5Qrcode = new Html5Qrcode('novo-romaneio-scanner')
     html5QrcodeRef.current = html5Qrcode
 
@@ -97,19 +90,25 @@ export default function NovoRomaneioPage() {
         aspectRatio: 1.777778
       },
       (decodedText) => {
-        handleBarcodeProcessed(decodedText, true)
+        if (isMounted) {
+          handleBarcodeProcessed(decodedText, true)
+        }
       },
       () => {}
     ).catch((err) => {
       console.error('Erro ao iniciar câmera:', err)
-      toast.error('Não foi possível acessar a câmera.')
-      setCameraActive(false)
+      if (isMounted) {
+        toast.error('Não foi possível acessar a câmera.')
+        setCameraActive(false)
+      }
     })
 
     return () => {
+      isMounted = false
       if (html5Qrcode.isScanning) {
-        html5Qrcode.stop().catch(console.error)
+        html5Qrcode.stop().catch(err => console.error('Erro ao desligar scanner:', err))
       }
+      html5QrcodeRef.current = null
     }
   }, [cameraActive])
 
@@ -505,19 +504,17 @@ export default function NovoRomaneioPage() {
           </button>
         </div>
 
-        {cameraActive && (
-          <div style={{ marginTop: '12px', position: 'relative' }}>
-            <div id="novo-romaneio-scanner" style={{ width: '100%', minHeight: '200px', background: '#000', borderRadius: '8px', overflow: 'hidden' }} />
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => setCameraActive(false)}
-              style={{ marginTop: '8px', height: '36px', fontSize: '13px' }}
-            >
-              Fechar Câmera
-            </button>
-          </div>
-        )}
+        <div style={{ display: cameraActive ? 'block' : 'none', marginTop: '12px', position: 'relative' }}>
+          <div id="novo-romaneio-scanner" style={{ width: '100%', minHeight: '200px', background: '#000', borderRadius: '8px', overflow: 'hidden' }} />
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => setCameraActive(false)}
+            style={{ marginTop: '8px', height: '36px', fontSize: '13px' }}
+          >
+            Fechar Câmera
+          </button>
+        </div>
       </div>
 
       {/* Import XML Block */}

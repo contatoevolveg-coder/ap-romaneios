@@ -249,63 +249,61 @@ export default function BipadorPage() {
         </div>
 
         {/* Viewport for scanning camera */}
-        {cameraActive ? (
-          <div style={{ position: 'relative', background: '#000', width: '100%', minHeight: '260px' }}>
-            <div id="scanner-container" style={{ width: '100%', minHeight: '260px' }} />
-            
-            {!scannerReady && (
-              <div className="flex-center" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#000', color: '#fff', flexDirection: 'column', gap: '8px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '50%',
-                  border: '2px solid #334155',
-                  borderTopColor: '#fff',
-                  animation: 'spin 1s linear infinite'
-                }} />
-                <span style={{ fontSize: '12px' }}>Iniciando câmera traseira...</span>
-              </div>
-            )}
-
-            {/* Custom Overlay Scanning Target */}
-            {scannerReady && (
+        <div style={{ display: cameraActive ? 'block' : 'none', position: 'relative', background: '#000', width: '100%', minHeight: '260px' }}>
+          <div id="scanner-container" style={{ width: '100%', minHeight: '260px' }} />
+          
+          {!scannerReady && (
+            <div className="flex-center" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#000', color: '#fff', flexDirection: 'column', gap: '8px' }}>
               <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '80%',
-                height: '80px',
-                border: '2px dashed var(--primary)',
-                borderRadius: '8px',
-                pointerEvents: 'none',
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                border: '2px solid #334155',
+                borderTopColor: '#fff',
+                animation: 'spin 1s linear infinite'
               }} />
-            )}
-          </div>
-        ) : (
-          /* Manual Text entry form */
-          <div style={{ padding: '24px 16px' }}>
-            <form onSubmit={handleManualSubmit}>
-              <div className="form-group">
-                <label>Número da Nota Fiscal (NF-e) ou Chave 44 dígitos</label>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                  <input
-                    type="text"
-                    className="input"
-                    value={manualCode}
-                    onChange={e => setManualCode(e.target.value)}
-                    placeholder="Ex: 65915"
-                    autoFocus
-                  />
-                  <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 16px' }} disabled={submittingManual}>
-                    Bipar
-                  </button>
-                </div>
+              <span style={{ fontSize: '12px' }}>Iniciando câmera traseira...</span>
+            </div>
+          )}
+
+          {/* Custom Overlay Scanning Target */}
+          {scannerReady && (
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '80%',
+              height: '80px',
+              border: '2px dashed var(--primary)',
+              borderRadius: '8px',
+              pointerEvents: 'none',
+              boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+            }} />
+          )}
+        </div>
+
+        {/* Manual Text entry form */}
+        <div style={{ display: !cameraActive ? 'block' : 'none', padding: '24px 16px' }}>
+          <form onSubmit={handleManualSubmit}>
+            <div className="form-group">
+              <label>Número da Nota Fiscal (NF-e) ou Chave 44 dígitos</label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <input
+                  type="text"
+                  className="input"
+                  value={manualCode}
+                  onChange={e => setManualCode(e.target.value)}
+                  placeholder="Ex: 65915"
+                  autoFocus={!cameraActive}
+                />
+                <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0 16px' }} disabled={submittingManual}>
+                  Bipar
+                </button>
               </div>
-            </form>
-          </div>
-        )}
+            </div>
+          </form>
+        </div>
       </div>
 
       {/* Last scanned result indicator feedback */}
