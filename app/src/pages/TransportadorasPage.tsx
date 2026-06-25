@@ -15,7 +15,7 @@ interface TransportadoraExpandida extends TransportadoraCadastrada {
 interface MotoristaForm { nome: string; cpf: string; rg: string }
 interface VeiculoForm  { modelo: string; placa: string }
 
-const emptyTransp = () => ({ nome: '', cnpj: '', contato_email: '', contato_telefone: '' })
+const emptyTransp = () => ({ nome: '', cnpj: '', contato_email: '', contato_telefone: '', recorrente: false })
 const emptyMotorista = (): MotoristaForm => ({ nome: '', cpf: '', rg: '' })
 const emptyVeiculo   = (): VeiculoForm  => ({ modelo: '', placa: '' })
 
@@ -70,6 +70,7 @@ export default function TransportadorasPage() {
       cnpj: formatCNPJ(t.cnpj),
       contato_email: t.contato_email || '',
       contato_telefone: t.contato_telefone || '',
+      recorrente: !!t.recorrente,
     })
     setShowForm(true)
   }
@@ -90,6 +91,7 @@ export default function TransportadorasPage() {
       cnpj: cleanCnpj,
       contato_email: form.contato_email.trim() || null,
       contato_telefone: form.contato_telefone.trim() || null,
+      recorrente: form.recorrente,
     }
 
     let error
@@ -229,6 +231,186 @@ export default function TransportadorasPage() {
     load()
   }
 
+  function renderTranspCard(t: TransportadoraExpandida) {
+    return (
+      <div key={t.id} className="transp-card">
+        <div className="transp-header" onClick={() => toggle(t.id)}>
+          <div className="transp-info">
+            <Truck size={18} color="#2563eb" />
+            <div>
+              <div className="transp-nome">
+                {t.nome}
+                {t.recorrente && (
+                  <span style={{ fontSize: 10, background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: 4, marginLeft: 8, fontWeight: 600 }}>
+                    Recorrente
+                  </span>
+                )}
+              </div>
+              <div className="transp-cnpj">{formatCNPJ(t.cnpj)}</div>
+              {t.contato_email && <div className="transp-cnpj">{t.contato_email}</div>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className="transp-badge">{t.motoristas.length} mot. · {t.veiculos.length} veíc.</span>
+            <button
+              className="btn-icon-sm"
+              onClick={e => { e.stopPropagation(); iniciarEdicao(t) }}
+              title="Editar"
+              style={{ color: 'var(--primary)' }}
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              className="btn-icon-sm danger"
+              onClick={e => { e.stopPropagation(); excluirTransportadora(t.id) }}
+              title="Desativar"
+            >
+              <Trash2 size={14} />
+            </button>
+            {expanded === t.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
+        </div>
+
+        {expanded === t.id && (
+          <div className="transp-body">
+            <div className="transp-tabs">
+              <button
+                className={`transp-tab ${activeTab[t.id] !== 'veiculos' ? 'active' : ''}`}
+                onClick={() => setActiveTab(prev => ({ ...prev, [t.id]: 'motoristas' }))}
+              >
+                <User size={14} /> Motoristas
+              </button>
+              <button
+                className={`transp-tab ${activeTab[t.id] === 'veiculos' ? 'active' : ''}`}
+                onClick={() => setActiveTab(prev => ({ ...prev, [t.id]: 'veiculos' }))}
+              >
+                <Car size={14} /> Veículos
+              </button>
+            </div>
+
+            {activeTab[t.id] !== 'veiculos' ? (
+              <div className="transp-sublist">
+                {t.motoristas.map(m => (
+                  <div key={m.id} className="transp-subitem">
+                    <div>
+                      <strong>{m.nome}</strong>
+                      {m.cpf && <span className="muted"> · CPF: {formatCPF(m.cpf)}</span>}
+                      {m.rg && <span className="muted"> · RG: {formatRG(m.rg)}</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {m.foto_documento ? (
+                        <button
+                          className="btn-icon-sm"
+                          title="Ver Documento"
+                          onClick={e => { e.stopPropagation(); setViewingPhoto({ mId: m.id, motoristaNome: m.nome, base64: m.foto_documento! }) }}
+                          style={{ color: '#2563eb' }}
+                        >
+                          <Eye size={13} />
+                        </button>
+                      ) : (
+                        <label
+                          className="btn-icon-sm"
+                          title="Upload Documento"
+                          style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: 0, color: '#475569' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <Camera size={13} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={e => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFotoUpload(m.id, file)
+                            }}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      )}
+                      <button className="btn-icon-sm danger" onClick={e => { e.stopPropagation(); excluirMotorista(m.id) }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <div className="transp-add-row">
+                  <input
+                    placeholder="Nome do motorista *"
+                    value={motorForm[t.id]?.nome ?? ''}
+                    onChange={e => setMotorForm(prev => ({
+                      ...prev,
+                      [t.id]: { ...(prev[t.id] ?? emptyMotorista()), nome: e.target.value }
+                    }))}
+                  />
+                  <input
+                    placeholder="CPF"
+                    inputMode="numeric"
+                    value={motorForm[t.id]?.cpf ?? ''}
+                    onChange={e => setMotorForm(prev => ({
+                      ...prev,
+                      [t.id]: { ...(prev[t.id] ?? emptyMotorista()), cpf: formatCPF(e.target.value) }
+                    }))}
+                  />
+                  <input
+                    placeholder="RG"
+                    inputMode="numeric"
+                    value={motorForm[t.id]?.rg ?? ''}
+                    onChange={e => setMotorForm(prev => ({
+                      ...prev,
+                      [t.id]: { ...(prev[t.id] ?? emptyMotorista()), rg: formatRG(e.target.value) }
+                    }))}
+                  />
+                  <button className="btn-secondary" onClick={() => adicionarMotorista(t.id)}>
+                    <PlusCircle size={14} /> Adicionar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="transp-sublist">
+                {t.veiculos.map(v => (
+                  <div key={v.id} className="transp-subitem">
+                    <div>
+                      <strong>{v.modelo}</strong>
+                      <span className="muted"> · {v.placa}</span>
+                    </div>
+                    <button className="btn-icon-sm danger" onClick={() => excluirVeiculo(v.id)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+                <div className="transp-add-row">
+                  <input
+                    placeholder="Modelo *"
+                    value={veicForm[t.id]?.modelo ?? ''}
+                    onChange={e => setVeicForm(prev => ({
+                      ...prev,
+                      [t.id]: { ...(prev[t.id] ?? emptyVeiculo()), modelo: e.target.value }
+                    }))}
+                  />
+                  <input
+                    placeholder="Placa *"
+                    value={veicForm[t.id]?.placa ?? ''}
+                    onChange={e => setVeicForm(prev => ({
+                      ...prev,
+                      [t.id]: { ...(prev[t.id] ?? emptyVeiculo()), placa: e.target.value }
+                    }))}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <button className="btn-secondary" onClick={() => adicionarVeiculo(t.id)}>
+                    <PlusCircle size={14} /> Adicionar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const recorrentes = lista.filter(t => t.recorrente)
+  const outras = lista.filter(t => !t.recorrente)
+
   return (
     <div className="page">
         <div className="page-header">
@@ -283,6 +465,18 @@ export default function TransportadorasPage() {
                 />
               </div>
             </div>
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                id="form-recorrente"
+                type="checkbox"
+                checked={form.recorrente}
+                onChange={e => setForm(p => ({ ...p, recorrente: e.target.checked }))}
+                style={{ width: 16, height: 16 }}
+              />
+              <label htmlFor="form-recorrente" style={{ fontSize: 13, fontWeight: 500, color: '#475569', cursor: 'pointer', margin: 0 }}>
+                Transportadora Recorrente
+              </label>
+            </div>
             <div className="form-actions" style={{ marginTop: 16 }}>
               <button className="btn-secondary" onClick={() => { setShowForm(false); setForm(emptyTransp()); setEditingId(null); }}>Cancelar</button>
               <button className="btn-primary" onClick={salvarTransportadora} disabled={saving}>
@@ -310,174 +504,30 @@ export default function TransportadorasPage() {
             <p>Nenhuma transportadora cadastrada ainda.</p>
           </div>
         ) : !migrationNeeded ? (
-          <div className="transp-list">
-            {lista.map(t => (
-              <div key={t.id} className="transp-card">
-                <div className="transp-header" onClick={() => toggle(t.id)}>
-                  <div className="transp-info">
-                    <Truck size={18} color="#2563eb" />
-                    <div>
-                      <div className="transp-nome">{t.nome}</div>
-                      <div className="transp-cnpj">{formatCNPJ(t.cnpj)}</div>
-                      {t.contato_email && <div className="transp-cnpj">{t.contato_email}</div>}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span className="transp-badge">{t.motoristas.length} mot. · {t.veiculos.length} veíc.</span>
-                    <button
-                      className="btn-icon-sm"
-                      onClick={e => { e.stopPropagation(); iniciarEdicao(t) }}
-                      title="Editar"
-                      style={{ color: 'var(--primary)' }}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      className="btn-icon-sm danger"
-                      onClick={e => { e.stopPropagation(); excluirTransportadora(t.id) }}
-                      title="Desativar"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    {expanded === t.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                  </div>
+          <div className="transp-list" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {recorrentes.length > 0 && (
+              <div>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>Recorrentes</span>
+                  <span style={{ fontSize: 11, background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 10 }}>{recorrentes.length}</span>
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {recorrentes.map(t => renderTranspCard(t))}
                 </div>
-
-                {expanded === t.id && (
-                  <div className="transp-body">
-                    <div className="transp-tabs">
-                      <button
-                        className={`transp-tab ${activeTab[t.id] !== 'veiculos' ? 'active' : ''}`}
-                        onClick={() => setActiveTab(prev => ({ ...prev, [t.id]: 'motoristas' }))}
-                      >
-                        <User size={14} /> Motoristas
-                      </button>
-                      <button
-                        className={`transp-tab ${activeTab[t.id] === 'veiculos' ? 'active' : ''}`}
-                        onClick={() => setActiveTab(prev => ({ ...prev, [t.id]: 'veiculos' }))}
-                      >
-                        <Car size={14} /> Veículos
-                      </button>
-                    </div>
-
-                    {activeTab[t.id] !== 'veiculos' ? (
-                      <div className="transp-sublist">
-                        {t.motoristas.map(m => (
-                          <div key={m.id} className="transp-subitem">
-                            <div>
-                              <strong>{m.nome}</strong>
-                              {m.cpf && <span className="muted"> · CPF: {formatCPF(m.cpf)}</span>}
-                              {m.rg && <span className="muted"> · RG: {formatRG(m.rg)}</span>}
-                            </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              {m.foto_documento ? (
-                                <button
-                                  className="btn-icon-sm"
-                                  title="Ver Documento"
-                                  onClick={e => { e.stopPropagation(); setViewingPhoto({ mId: m.id, motoristaNome: m.nome, base64: m.foto_documento! }) }}
-                                  style={{ color: '#2563eb' }}
-                                >
-                                  <Eye size={13} />
-                                </button>
-                              ) : (
-                                <label
-                                  className="btn-icon-sm"
-                                  title="Upload Documento"
-                                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: 0, color: '#475569' }}
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  <Camera size={13} />
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    capture="environment"
-                                    onChange={e => {
-                                      const file = e.target.files?.[0]
-                                      if (file) handleFotoUpload(m.id, file)
-                                    }}
-                                    style={{ display: 'none' }}
-                                  />
-                                </label>
-                              )}
-                              <button className="btn-icon-sm danger" onClick={e => { e.stopPropagation(); excluirMotorista(m.id) }}>
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        <div className="transp-add-row">
-                          <input
-                            placeholder="Nome do motorista *"
-                            value={motorForm[t.id]?.nome ?? ''}
-                            onChange={e => setMotorForm(prev => ({
-                              ...prev,
-                              [t.id]: { ...(prev[t.id] ?? emptyMotorista()), nome: e.target.value }
-                            }))}
-                          />
-                          <input
-                            placeholder="CPF"
-                            inputMode="numeric"
-                            value={motorForm[t.id]?.cpf ?? ''}
-                            onChange={e => setMotorForm(prev => ({
-                              ...prev,
-                              [t.id]: { ...(prev[t.id] ?? emptyMotorista()), cpf: formatCPF(e.target.value) }
-                            }))}
-                          />
-                          <input
-                            placeholder="RG"
-                            inputMode="numeric"
-                            value={motorForm[t.id]?.rg ?? ''}
-                            onChange={e => setMotorForm(prev => ({
-                              ...prev,
-                              [t.id]: { ...(prev[t.id] ?? emptyMotorista()), rg: formatRG(e.target.value) }
-                            }))}
-                          />
-                          <button className="btn-secondary" onClick={() => adicionarMotorista(t.id)}>
-                            <PlusCircle size={14} /> Adicionar
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="transp-sublist">
-                        {t.veiculos.map(v => (
-                          <div key={v.id} className="transp-subitem">
-                            <div>
-                              <strong>{v.modelo}</strong>
-                              <span className="muted"> · {v.placa}</span>
-                            </div>
-                            <button className="btn-icon-sm danger" onClick={() => excluirVeiculo(v.id)}>
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        ))}
-                        <div className="transp-add-row">
-                          <input
-                            placeholder="Modelo *"
-                            value={veicForm[t.id]?.modelo ?? ''}
-                            onChange={e => setVeicForm(prev => ({
-                              ...prev,
-                              [t.id]: { ...(prev[t.id] ?? emptyVeiculo()), modelo: e.target.value }
-                            }))}
-                          />
-                          <input
-                            placeholder="Placa *"
-                            value={veicForm[t.id]?.placa ?? ''}
-                            onChange={e => setVeicForm(prev => ({
-                              ...prev,
-                              [t.id]: { ...(prev[t.id] ?? emptyVeiculo()), placa: e.target.value }
-                            }))}
-                            style={{ textTransform: 'uppercase' }}
-                          />
-                          <button className="btn-secondary" onClick={() => adicionarVeiculo(t.id)}>
-                            <PlusCircle size={14} /> Adicionar
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-            ))}
+            )}
+
+            {outras.length > 0 && (
+              <div>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>Outras Transportadoras</span>
+                  <span style={{ fontSize: 11, background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: 10 }}>{outras.length}</span>
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {outras.map(t => renderTranspCard(t))}
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 

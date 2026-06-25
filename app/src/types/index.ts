@@ -64,6 +64,7 @@ export interface TransportadoraCadastrada {
   contato_email: string | null
   contato_telefone: string | null
   ativo: boolean
+  recorrente: boolean
   criado_em: string
 }
 
