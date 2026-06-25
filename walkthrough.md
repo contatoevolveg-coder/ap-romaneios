@@ -192,7 +192,11 @@ Este documento resume as implementações realizadas na versão móvel (`/mobile
     *   Realizada migração para confirmar retroativamente todos os e-mails de contas de usuários criadas que estavam com o status pendente no Supabase.
 *   **Primeiro Acesso (Redefinição de Senha Obrigatória)**:
     *   Ambos os layouts ([Layout.tsx](file:///C:/Users/Logistica/Desktop/Ap%20Romaneio/app/src/components/Layout.tsx) e [MobileLayout.tsx](file:///C:/Users/Logistica/Desktop/Ap%20Romaneio/mobile/src/components/MobileLayout.tsx)) agora interceptam e exibem uma tela obrigatória para redefinição de senha caso o perfil do usuário logado possua `senha_alterada = false`.
-    *   A tela exige que o usuário defina e confirme sua nova senha pessoal (mínimo de 6 caracteres), atualizando-a via Supabase Auth e salvando o perfil com `senha_alterada = true` e `senha_temporaria = null`.
+    *   A tela exige que o usuário defina e confirme sua nova senha pessoal (mínimo de 4 caracteres), atualizando-a via Supabase Auth e salvando o perfil com `senha_alterada = true` e `senha_temporaria = null`.
+*   **Suporte a Senhas de 4 Dígitos (Bypass de Segurança do Supabase)**:
+    *   Como o Supabase Auth (GoTrue) impõe um limite mínimo rígido e não configurável abaixo de 6 caracteres na nuvem, implementamos um sistema de preenchimento inteligente no cliente:
+    *   Senhas com comprimento inferior a 6 caracteres (como as de 4 dígitos inseridas na criação de usuário e primeiro acesso) recebem automaticamente um sufixo estático de segurança (`_roma`) antes de serem submetidas ao Supabase Auth API.
+    *   As senhas longas (>= 6) existentes continuam sem alterações, garantindo total compatibilidade retrátil.
 *   **Gestão de Usuários pelo Master**:
     *   **Visualização de Senhas**: Exibição da coluna "Senha Inicial" na tabela de usuários. Exibe a senha temporária criada se a senha ainda não foi alterada. Se já foi alterada, exibe uma etiqueta verde "Pessoal".
     *   **Editar Usuário**: Adicionado botão de Lápis (modal de edição) que permite atualizar o Nome, E-mail e Nível de Acesso (chamando a RPC `admin_update_user`).
