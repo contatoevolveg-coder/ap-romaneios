@@ -726,6 +726,7 @@ export default function NovoRomaneioPage() {
               <option>Shein</option>
               <option>Shopee</option>
               <option>TikTok</option>
+              <option>Transportadoras</option>
             </select>
           </div>
           <div className="form-group">

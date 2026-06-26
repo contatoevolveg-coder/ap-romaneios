@@ -693,6 +693,7 @@ export default function EditarRomaneioPage() {
               <option>Shein</option>
               <option>Shopee</option>
               <option>TikTok</option>
+              <option>Transportadoras</option>
             </select>
           </div>
           <div className="form-group">
@@ -861,6 +862,7 @@ export default function EditarRomaneioPage() {
                   <option>Shein</option>
                   <option>Shopee</option>
                   <option>TikTok</option>
+                  <option>Transportadoras</option>
                 </select>
               </div>
 

@@ -497,6 +497,7 @@ export default function EditarRomaneioPage() {
               <option>Shein</option>
               <option>Shopee</option>
               <option>TikTok</option>
+              <option>Transportadoras</option>
             </select>
             <input
               type="number" min={1}

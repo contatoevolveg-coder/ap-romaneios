@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { PlusCircle, Trash2, ArrowLeft, Upload, ChevronDown, Barcode, Loader2 } from 'lucide-react'
+import { PlusCircle, Trash2, ArrowLeft, Upload, Barcode, Loader2 } from 'lucide-react'
 import type { TransportadoraCadastrada, MotoristaCadastrado, VeiculoCadastrado } from '../types'
 import { normalizarNfe, mesmaNfe, ehChaveCompleta, analisarChave, parseNfeXml } from '../lib/nfe'
 import { audioService } from '../lib/audio'
@@ -47,7 +47,6 @@ export default function NovoRomaneioPage() {
   const [transpFilter, setTranspFilter] = useState<'recorrente' | 'outra'>('recorrente')
   const [selectedMotoristaId, setSelectedMotoristaId] = useState('')
   const [selectedVeiculoId, setSelectedVeiculoId] = useState('')
-  const [showPreCadastro, setShowPreCadastro] = useState(false)
 
   useEffect(() => { loadTransp() }, [])
 
@@ -428,60 +427,54 @@ export default function NovoRomaneioPage() {
       {/* Pré-cadastro de transportadora */}
       {transp.length > 0 && (
         <div className="form-card" style={{ marginBottom: 16 }}>
-          <button type="button" className="btn-ghost" onClick={() => setShowPreCadastro(!showPreCadastro)}
-            style={{ width: '100%', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 600 }}>
-              {selectedTransp ? `Transportadora: ${selectedTransp.nome}` : 'Selecionar transportadora pré-cadastrada (opcional)'}
-            </span>
-            <ChevronDown size={16} style={{ transform: showPreCadastro ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
-          </button>
-          {showPreCadastro && (
-            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div className="field">
-                <label>Transportadora</label>
-                <div style={{ display: 'flex', background: 'var(--bg-highlight)', padding: '3px', borderRadius: '8px', marginBottom: '8px', border: '1px solid var(--border)' }}>
-                  {(['recorrente', 'outra'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setTranspFilter(tab)}
-                      style={{
-                        flex: 1, height: '30px', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
-                        background: transpFilter === tab ? '#fff' : 'transparent',
-                        color: transpFilter === tab ? 'var(--primary)' : 'var(--text-muted)',
-                        fontWeight: transpFilter === tab ? 700 : 500,
-                        boxShadow: transpFilter === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                      }}
-                    >
-                      {tab === 'recorrente' ? 'Recorrentes' : 'Outras'}
-                    </button>
-                  ))}
-                </div>
-                <select value={selectedTranspId} onChange={e => { setSelectedTranspId(e.target.value); setSelectedMotoristaId(''); setSelectedVeiculoId('') }}>
-                  <option value="">— Não usar pré-cadastro —</option>
-                  {transpFiltered.map(t => <option key={t.id} value={t.id}>{t.nome} · {t.cnpj}</option>)}
-                </select>
+          <div className="section-title" style={{ marginBottom: 12 }}>
+            Selecionar Transportadora Pré-cadastrada (opcional)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="field">
+              <label>Transportadora</label>
+              <div style={{ display: 'flex', background: 'var(--bg-highlight)', padding: '3px', borderRadius: '8px', marginBottom: '8px', border: '1px solid var(--border)' }}>
+                {(['recorrente', 'outra'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setTranspFilter(tab)}
+                    style={{
+                      flex: 1, height: '30px', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
+                      background: transpFilter === tab ? '#fff' : 'transparent',
+                      color: transpFilter === tab ? 'var(--primary)' : 'var(--text-muted)',
+                      fontWeight: transpFilter === tab ? 700 : 500,
+                      boxShadow: transpFilter === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                    }}
+                  >
+                    {tab === 'recorrente' ? 'Recorrentes' : 'Outras'}
+                  </button>
+                ))}
               </div>
-              {selectedTranspId && (
-                <div className="field-row">
-                  <div className="field">
-                    <label>Motorista (opcional)</label>
-                    <select value={selectedMotoristaId} onChange={e => setSelectedMotoristaId(e.target.value)}>
-                      <option value="">— Selecionar motorista —</option>
-                      {motoristasFiltered.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label>Veículo (opcional)</label>
-                    <select value={selectedVeiculoId} onChange={e => setSelectedVeiculoId(e.target.value)}>
-                      <option value="">— Selecionar veículo —</option>
-                      {veiculosFiltered.map(v => <option key={v.id} value={v.id}>{v.modelo} · {v.placa}</option>)}
-                    </select>
-                  </div>
-                </div>
-              )}
+              <select value={selectedTranspId} onChange={e => { setSelectedTranspId(e.target.value); setSelectedMotoristaId(''); setSelectedVeiculoId('') }}>
+                <option value="">— Não usar pré-cadastro —</option>
+                {transpFiltered.map(t => <option key={t.id} value={t.id}>{t.nome} · {t.cnpj}</option>)}
+              </select>
             </div>
-          )}
+            {selectedTranspId && (
+              <div className="field-row">
+                <div className="field">
+                  <label>Motorista (opcional)</label>
+                  <select value={selectedMotoristaId} onChange={e => setSelectedMotoristaId(e.target.value)}>
+                    <option value="">— Selecionar motorista —</option>
+                    {motoristasFiltered.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Veículo (opcional)</label>
+                  <select value={selectedVeiculoId} onChange={e => setSelectedVeiculoId(e.target.value)}>
+                    <option value="">— Selecionar veículo —</option>
+                    {veiculosFiltered.map(v => <option key={v.id} value={v.id}>{v.modelo} · {v.placa}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -545,6 +538,7 @@ export default function NovoRomaneioPage() {
                 <option>Shein</option>
                 <option>Shopee</option>
                 <option>TikTok</option>
+                <option>Transportadoras</option>
               </select>
               <input
                 type="number" min={1}
