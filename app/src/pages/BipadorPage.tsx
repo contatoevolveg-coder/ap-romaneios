@@ -1,26 +1,34 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { CheckCircle2, Circle, ArrowLeft, ScanLine, Camera, CameraOff } from 'lucide-react'
+import { CheckCircle2, Circle, ArrowLeft, ScanLine, Camera, CameraOff, AlertTriangle, Flashlight, ZoomIn } from 'lucide-react'
 import type { Romaneio, RomaneioItem } from '../types'
 import toast from 'react-hot-toast'
 import { normalizarNfe, mesmaNfe, ehChaveCompleta } from '../lib/nfe'
 import { audioService } from '../lib/audio'
+import { useAuth } from '../context/AuthContext'
 
 export default function BipadorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [romaneio, setRomaneio] = useState<Romaneio | null>(null)
   const [itens, setItens] = useState<RomaneioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [codigoInput, setCodigoInput] = useState('')
   const [scanningCamera, setScanningCamera] = useState(false)
   const [cameraSupported, setCameraSupported] = useState(false)
+  const [divergencias, setDivergencias] = useState<string[]>([])
+  const [torchOn, setTorchOn] = useState(false)
+  const [hasTorch, setHasTorch] = useState(false)
+  const [hasZoom, setHasZoom] = useState(false)
+  const [zoomOn, setZoomOn] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const animFrameRef = useRef<number>(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const lastProcessedRef = useRef<string>('')
+  const conferenciaRegistrada = useRef(false)
 
   useEffect(() => {
     setCameraSupported('BarcodeDetector' in window)
@@ -33,9 +41,23 @@ export default function BipadorPage() {
       supabase.from('romaneios').select('*').eq('id', id).single(),
       supabase.from('romaneio_itens').select('*').eq('romaneio_id', id).order('inserido_em'),
     ])
-    if (rom) setRomaneio(rom)
+    if (rom) {
+      setRomaneio(rom)
+      if (rom.conferido_por) conferenciaRegistrada.current = true
+    }
     if (items) setItens(items)
     setLoading(false)
+  }
+
+  // Registra quem fez a conferência (primeira bipagem da sessão)
+  async function registrarConferencia() {
+    if (conferenciaRegistrada.current || !user) return
+    conferenciaRegistrada.current = true
+    await supabase
+      .from('romaneios')
+      .update({ conferido_por: user.id, conferido_em: new Date().toISOString() })
+      .eq('id', id)
+      .is('conferido_por', null)
   }
 
   async function biparItem(item: RomaneioItem, codigo?: string) {
@@ -52,6 +74,7 @@ export default function BipadorPage() {
           : i
       ))
       if (bipado) {
+        registrarConferencia()
         audioService.playSuccess()
         toast.success(`NF-e ${item.numero_nfe} confirmada`)
       } else {
@@ -64,8 +87,12 @@ export default function BipadorPage() {
   }
 
   function encontrarItem(valor: string): RomaneioItem | undefined {
-    // Compara normalizando ambos os lados (tolera chave completa, zeros à esquerda e formatação)
     return itens.find(i => mesmaNfe(i.numero_nfe, valor))
+  }
+
+  function registrarDivergencia(codigo: string) {
+    const nfe = normalizarNfe(codigo) || codigo
+    setDivergencias(prev => prev.includes(nfe) ? prev : [...prev, nfe])
   }
 
   async function handleCodigoSubmitValor(valor: string) {
@@ -85,7 +112,8 @@ export default function BipadorPage() {
       await biparItem(item, nfeExtraida)
     } else {
       audioService.playError()
-      toast.error(`NF-e não encontrada: ${nfeExtraida}`)
+      registrarDivergencia(cleanValor)
+      toast.error(`NF-e não pertence a este romaneio: ${nfeExtraida}`)
     }
     setCodigoInput('')
     inputRef.current?.focus()
@@ -98,13 +126,33 @@ export default function BipadorPage() {
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        }
       })
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         await videoRef.current.play()
       }
+      // Tenta foco contínuo + detecta torch/zoom disponíveis
+      const track = stream.getVideoTracks()[0]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const caps: any = track.getCapabilities?.() ?? {}
+      const advanced: MediaTrackConstraintSet[] = []
+      if (caps.focusMode?.includes?.('continuous')) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        advanced.push({ focusMode: 'continuous' } as any)
+      }
+      if (advanced.length) {
+        try { await track.applyConstraints({ advanced }) } catch { /* ignora */ }
+      }
+      setHasTorch(!!caps.torch)
+      setHasZoom(!!caps.zoom)
+      setTorchOn(false)
+      setZoomOn(false)
       setScanningCamera(true)
       scanFrame()
     } catch {
@@ -117,6 +165,37 @@ export default function BipadorPage() {
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
     setScanningCamera(false)
+    setHasTorch(false)
+    setHasZoom(false)
+  }
+
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    try {
+      const next = !torchOn
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await track.applyConstraints({ advanced: [{ torch: next } as any] })
+      setTorchOn(next)
+    } catch {
+      toast.error('Lanterna indisponível neste dispositivo')
+    }
+  }
+
+  async function toggleZoom() {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const caps: any = track.getCapabilities?.() ?? {}
+      const next = !zoomOn
+      const target = next ? Math.min(2, caps.zoom?.max ?? 2) : (caps.zoom?.min ?? 1)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await track.applyConstraints({ advanced: [{ zoom: target } as any] })
+      setZoomOn(next)
+    } catch {
+      toast.error('Zoom indisponível neste dispositivo')
+    }
   }
 
   async function scanFrame() {
@@ -143,6 +222,11 @@ export default function BipadorPage() {
   const bipados = itens.filter(i => i.bipado_em).length
   const total = itens.length
   const progresso = total > 0 ? Math.round((bipados / total) * 100) : 0
+  const volumesEsperados = itens.reduce((s, i) => s + (i.qtd_volumes || 0), 0)
+  const volumesConfirmados = itens.filter(i => i.bipado_em).reduce((s, i) => s + (i.qtd_volumes || 0), 0)
+  const pendentes = itens.filter(i => !i.bipado_em)
+  const temDivergencia = pendentes.length > 0 || divergencias.length > 0
+  const conferenciaCompleta = total > 0 && pendentes.length === 0
 
   if (loading) return (
     <div className="loading-screen"><div className="spinner" /></div>
@@ -177,12 +261,65 @@ export default function BipadorPage() {
           <div className="progress-bar-bg">
             <div className="progress-bar-fill" style={{ width: `${progresso}%` }} />
           </div>
-          {bipados === total && total > 0 && (
+          {/* Resumo de volumes */}
+          <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 13 }}>
+              <span style={{ color: '#64748b' }}>Volumes confirmados: </span>
+              <strong style={{ color: volumesConfirmados === volumesEsperados && volumesEsperados > 0 ? '#10b981' : '#2563eb' }}>
+                {volumesConfirmados} / {volumesEsperados}
+              </strong>
+            </div>
+          </div>
+          {conferenciaCompleta && divergencias.length === 0 && (
             <div className="success-msg" style={{ marginTop: 12 }}>
-              <CheckCircle2 size={16} /> Todos os itens confirmados!
+              <CheckCircle2 size={16} /> Conferência completa — todos os itens confirmados!
             </div>
           )}
         </div>
+
+        {/* Painel de divergência */}
+        {temDivergencia && (
+          <div className="form-card" style={{ marginBottom: 16, border: '1px solid #fca5a5', background: '#fef2f2' }}>
+            <div className="section-title" style={{ color: '#b91c1c' }}>
+              <AlertTriangle size={16} /> Divergências na conferência
+            </div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: '#991b1b' }}>
+                <strong>{pendentes.length}</strong> NF-e(s) pendente(s) · <strong>{volumesEsperados - volumesConfirmados}</strong> volume(s) faltando
+              </div>
+              {divergencias.length > 0 && (
+                <div style={{ fontSize: 13, color: '#991b1b' }}>
+                  <strong>{divergencias.length}</strong> leitura(s) não reconhecida(s)
+                </div>
+              )}
+            </div>
+            {pendentes.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#991b1b', marginBottom: 4 }}>NF-e's pendentes</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {pendentes.map(p => (
+                    <span key={p.id} style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontFamily: 'monospace' }}>
+                      {p.numero_nfe} · {p.qtd_volumes}vol
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {divergencias.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#991b1b', marginBottom: 4 }}>Leituras sem correspondência (sobras)</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                  {divergencias.map(d => (
+                    <span key={d} style={{ background: '#fde68a', color: '#92400e', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontFamily: 'monospace' }}>
+                      {d}
+                    </span>
+                  ))}
+                  <button className="btn-ghost" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => setDivergencias([])}>Limpar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Entrada manual / scanner */}
         <div className="form-card" style={{ marginBottom: 16 }}>
@@ -194,7 +331,6 @@ export default function BipadorPage() {
               onChange={e => {
                 const val = e.target.value
                 setCodigoInput(val)
-                // Chave completa (44 díg) confirma sozinha, sem precisar de Enter
                 if (ehChaveCompleta(val)) setTimeout(() => { handleCodigoSubmitValor(val) }, 0)
               }}
               onKeyDown={e => {
@@ -204,13 +340,11 @@ export default function BipadorPage() {
                 e.preventDefault()
 
                 const digits = val.replace(/\D/g, '')
-                // Se for uma chave (possui 20 ou mais dígitos), só processa se estiver completa (44 dígitos)
                 if (digits.length >= 20) {
                   if (digits.length === 44) {
                     handleCodigoSubmitValor(val)
                   }
                 } else {
-                  // Se for um número normal de NF-e curta, processa diretamente
                   handleCodigoSubmitValor(val)
                 }
               }}
@@ -263,6 +397,30 @@ export default function BipadorPage() {
                 <div className="camera-frame" />
                 <p className="camera-hint">Aponte para o código de barras da NF-e</p>
               </div>
+              {(hasTorch || hasZoom) && (
+                <div style={{ position: 'absolute', bottom: 12, right: 12, display: 'flex', gap: 8 }}>
+                  {hasTorch && (
+                    <button
+                      onClick={toggleTorch}
+                      className={`camera-ctrl ${torchOn ? 'on' : ''}`}
+                      title="Lanterna"
+                      style={{ background: torchOn ? '#f59e0b' : 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', borderRadius: 999, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                      <Flashlight size={18} />
+                    </button>
+                  )}
+                  {hasZoom && (
+                    <button
+                      onClick={toggleZoom}
+                      className={`camera-ctrl ${zoomOn ? 'on' : ''}`}
+                      title="Zoom 2x"
+                      style={{ background: zoomOn ? '#2563eb' : 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', borderRadius: 999, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                      <ZoomIn size={18} />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

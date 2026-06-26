@@ -8,11 +8,13 @@ import NovoRomaneioPage from './pages/NovoRomaneioPage'
 import RomaneioDetalhePage from './pages/RomaneioDetalhePage'
 import ImpressaoPage from './pages/ImpressaoPage'
 import ColetaPublicaPage from './pages/ColetaPublicaPage'
+import RastreioPage from './pages/RastreioPage'
 import ConfiguracoesPage from './pages/ConfiguracoesPage'
 import TransportadorasPage from './pages/TransportadorasPage'
 import BipadorPage from './pages/BipadorPage'
 import LixeiraPage from './pages/LixeiraPage'
 import EditarRomaneioPage from './pages/EditarRomaneioPage'
+import AnalyticsPage from './pages/AnalyticsPage'
 
 export default function App() {
   return (
@@ -21,6 +23,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/coleta/:token" element={<ColetaPublicaPage />} />
+          <Route path="/rastreio/:token" element={<RastreioPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/romaneios/novo" element={<ProtectedRoute><NovoRomaneioPage /></ProtectedRoute>} />
@@ -30,6 +33,7 @@ export default function App() {
           <Route path="/romaneios/:id/editar" element={<ProtectedRoute><EditarRomaneioPage /></ProtectedRoute>} />
           <Route path="/lixeira" element={<ProtectedRoute><LixeiraPage /></ProtectedRoute>} />
           <Route path="/transportadoras" element={<ProtectedRoute><TransportadorasPage /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
           <Route path="/configuracoes" element={<ProtectedRoute><ConfiguracoesPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

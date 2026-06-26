@@ -29,6 +29,7 @@ export default function ImpressaoPage() {
   const [data, setData] = useState<RomaneioCompleto | null>(null)
   const [error, setError] = useState(false)
   const [gerandoPdf, setGerandoPdf] = useState(false)
+  const [qrUrl, setQrUrl] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
 
   const handleVoltar = () => {
@@ -50,6 +51,17 @@ export default function ImpressaoPage() {
         setData(r)
       })
   }, [id])
+
+  // Gera o QR Code de rastreio público
+  useEffect(() => {
+    if (!data?.token_publico) return
+    const base = import.meta.env.VITE_APP_URL || window.location.origin
+    const rastreioUrl = `${base}/rastreio/${data.token_publico}`
+    import('qrcode')
+      .then(({ default: QRCode }) => QRCode.toDataURL(rastreioUrl, { margin: 1, width: 160 }))
+      .then(setQrUrl)
+      .catch(() => setQrUrl(null))
+  }, [data?.token_publico])
 
   async function baixarPdf() {
     if (!printRef.current) return
@@ -128,6 +140,14 @@ export default function ImpressaoPage() {
               <span>Data: <strong>{data.data_emissao}</strong></span>
               <span>Status: <strong>{data.status}</strong></span>
             </div>
+            {qrUrl && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: 9, color: '#475569', maxWidth: 110, textAlign: 'right', lineHeight: 1.3 }}>
+                  Aponte a câmera para acompanhar esta carga
+                </span>
+                <img src={qrUrl} alt="QR de rastreio" style={{ width: 64, height: 64 }} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -239,7 +259,9 @@ export default function ImpressaoPage() {
         </div>
 
         <div className="print-rodape">
-          Romaneio gerado em {data.data_emissao} · Operador: {data.criado_por_nome}
+          Romaneio gerado em {data.data_emissao} · Criado por: {data.criado_por_nome || '—'}
+          {data.conferido_por_nome ? ` · Conferido por: ${data.conferido_por_nome}` : ''}
+          {data.liberado_por_nome ? ` · Liberado por: ${data.liberado_por_nome}` : ''}
         </div>
       </div>
     </>

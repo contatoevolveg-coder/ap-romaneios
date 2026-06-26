@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-import { FileText, PlusCircle, Settings, LogOut, Truck, Building2, Trash2, Sun, Moon } from 'lucide-react'
+import { FileText, PlusCircle, Settings, LogOut, Truck, Building2, Trash2, Sun, Moon, BarChart3 } from 'lucide-react'
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { perfil, signOut } = useAuth()
@@ -137,6 +137,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <nav className="sidebar-nav">
           {navItem('/', <FileText size={18} />, 'Romaneios')}
           {navItem('/romaneios/novo', <PlusCircle size={18} />, 'Novo Romaneio')}
+          {navItem('/analytics', <BarChart3 size={18} />, 'Analytics')}
           {navItem('/transportadoras', <Building2 size={18} />, 'Transportadoras')}
           {navItem('/lixeira', <Trash2 size={18} />, 'Lixeira')}
           {navItem('/configuracoes', <Settings size={18} />, 'Configurações')}

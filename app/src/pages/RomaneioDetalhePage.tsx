@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioItem, RomaneioStatus, RomaneioHistorico } from '../types'
 import StatusBadge from '../components/StatusBadge'
 import ConfirmModal from '../components/ConfirmModal'
+import { useAuth } from '../context/AuthContext'
 import { normalizarNfe, mesmaNfe, ehChaveCompleta } from '../lib/nfe'
 import { audioService } from '../lib/audio'
 import { ArrowLeft, Copy, Printer, CheckCircle, XCircle, PlusCircle, Trash2, Clock, RefreshCw, ChevronDown, ChevronUp, ScanLine, Pencil, Camera, PenLine } from 'lucide-react'
@@ -116,11 +117,15 @@ function formatExpiry(dateStr: string | null): { label: string; urgent: boolean 
   return { label: `Link válido por ${days} dias`, urgent: false }
 }
 
+interface OperadorInfo { criado_por_nome: string | null; conferido_por_nome: string | null; liberado_por_nome: string | null }
+
 export default function RomaneioDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [romaneio, setRomaneio] = useState<Romaneio | null>(null)
   const [itens, setItens] = useState<RomaneioItem[]>([])
+  const [operadores, setOperadores] = useState<OperadorInfo | null>(null)
   const [historico, setHistorico] = useState<RomaneioHistorico[]>([])
   const [loading, setLoading] = useState(true)
   const [changingStatus, setChangingStatus] = useState(false)
@@ -185,16 +190,18 @@ export default function RomaneioDetalhePage() {
   }, [id])
 
   async function load() {
-    const [{ data: r, error: errR }, { data: its, error: errI }, { data: hist }] = await Promise.all([
+    const [{ data: r, error: errR }, { data: its, error: errI }, { data: hist }, { data: ops }] = await Promise.all([
       supabase.from('romaneios').select('*').eq('id', id!).single(),
       supabase.from('romaneio_itens').select('*').eq('romaneio_id', id!).order('inserido_em'),
       supabase.from('romaneio_historico').select('*').eq('romaneio_id', id!).order('executado_em', { ascending: false }),
+      supabase.from('vw_romaneio_completo').select('criado_por_nome, conferido_por_nome, liberado_por_nome').eq('romaneio_id', id!).single(),
     ])
     if (errR) toast.error('Erro ao carregar romaneio.')
     if (errI) toast.error('Erro ao carregar itens.')
     setRomaneio(r)
     setItens(its || [])
     setHistorico(hist || [])
+    setOperadores(ops as OperadorInfo | null)
     setLoading(false)
   }
 
@@ -238,15 +245,24 @@ export default function RomaneioDetalhePage() {
       return
     }
     setChangingStatus(true)
-    const { error } = await supabase.from('romaneios').update({ status: modal.status }).eq('id', id!)
+    const updatePayload: Record<string, unknown> = { status: modal.status }
+    if (modal.status === 'Liberado') {
+      updatePayload.liberado_por = user?.id ?? null
+      updatePayload.liberado_em = new Date().toISOString()
+    }
+    const { error } = await supabase.from('romaneios').update(updatePayload).eq('id', id!)
     setChangingStatus(false)
     if (error) {
       toast.error('Erro ao atualizar status: ' + error.message)
     } else {
       setRomaneio(prev => prev ? { ...prev, status: modal.status! } : prev)
       toast.success(`Romaneio ${modal.status === 'Liberado' ? 'liberado' : 'cancelado'} com sucesso.`)
-      const { data: hist } = await supabase.from('romaneio_historico').select('*').eq('romaneio_id', id!).order('executado_em', { ascending: false })
+      const [{ data: hist }, { data: ops }] = await Promise.all([
+        supabase.from('romaneio_historico').select('*').eq('romaneio_id', id!).order('executado_em', { ascending: false }),
+        supabase.from('vw_romaneio_completo').select('criado_por_nome, conferido_por_nome, liberado_por_nome').eq('romaneio_id', id!).single(),
+      ])
       setHistorico(hist || [])
+      setOperadores(ops as OperadorInfo | null)
       // Envia e-mail automaticamente quando Liberado
       if (modal.status === 'Liberado') {
         supabase.functions.invoke('enviar-romaneio', { body: { romaneio_id: id } })
@@ -595,6 +611,30 @@ export default function RomaneioDetalhePage() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Histórico de operadores */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-title">Operadores</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+          {[
+            { label: 'Criado por', nome: operadores?.criado_por_nome, data: romaneio.data_criacao, icon: <PlusCircle size={14} /> },
+            { label: 'Conferido por', nome: operadores?.conferido_por_nome, data: romaneio.conferido_em, icon: <ScanLine size={14} /> },
+            { label: 'Liberado por', nome: operadores?.liberado_por_nome, data: romaneio.liberado_em, icon: <CheckCircle size={14} /> },
+          ].map(op => (
+            <div key={op.label} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', marginBottom: 6 }}>
+                {op.icon} {op.label}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: op.nome ? 'var(--text)' : 'var(--text-muted)' }}>{op.nome || '—'}</div>
+              {op.nome && op.data && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  {new Date(op.data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
