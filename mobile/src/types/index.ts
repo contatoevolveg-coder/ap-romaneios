@@ -42,6 +42,10 @@ export interface Romaneio {
   email_notificacao: string | null
   excluido_em: string | null
   foto_documento_motorista: string | null
+  conferido_por: string | null
+  conferido_em: string | null
+  liberado_por: string | null
+  liberado_em: string | null
 }
 
 export interface RomaneioItem {
@@ -117,6 +121,10 @@ export interface RomaneioCompleto {
   itens: RomaneioItem[]
   criado_por_nome: string | null
   criado_por_email: string | null
+  conferido_por_nome: string | null
+  conferido_em: string | null
+  liberado_por_nome: string | null
+  liberado_em: string | null
 }
 
 export interface RomaneioHistorico {

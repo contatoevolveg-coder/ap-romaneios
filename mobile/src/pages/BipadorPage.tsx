@@ -6,14 +6,18 @@ import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioItem } from '../types'
 import { normalizarNfe, mesmaNfe } from '../lib/nfe'
 import { audioService } from '../lib/audio'
-import { ArrowLeft, Camera, Keyboard, Check, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Camera, Keyboard, Check, AlertCircle, AlertTriangle } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 export default function BipadorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [romaneio, setRomaneio] = useState<Romaneio | null>(null)
   const [itens, setItens] = useState<RomaneioItem[]>([])
+  const [divergencias, setDivergencias] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const conferenciaRegistrada = useRef(false)
   
   // Camera scanner states
   const [cameraActive, setCameraActive] = useState(true)
@@ -37,7 +41,10 @@ export default function BipadorPage() {
         supabase.from('romaneios').select('*').eq('id', id).single(),
         supabase.from('romaneio_itens').select('*').eq('romaneio_id', id).order('inserido_em')
       ])
-      if (rom) setRomaneio(rom)
+      if (rom) {
+        setRomaneio(rom)
+        if (rom.conferido_por) conferenciaRegistrada.current = true
+      }
       if (items) setItens(items)
     } catch (e) {
       toast.error('Erro ao carregar dados.')
@@ -45,6 +52,17 @@ export default function BipadorPage() {
       setLoading(false)
     }
   }, [id])
+
+  // Registra quem fez a conferência (primeira bipagem da sessão)
+  const registrarConferencia = useCallback(async () => {
+    if (conferenciaRegistrada.current || !user) return
+    conferenciaRegistrada.current = true
+    await supabase
+      .from('romaneios')
+      .update({ conferido_por: user.id, conferido_em: new Date().toISOString() })
+      .eq('id', id)
+      .is('conferido_por', null)
+  }, [id, user])
 
   useEffect(() => {
     load()
@@ -69,8 +87,9 @@ export default function BipadorPage() {
 
     if (!item) {
       audioService.playError()
-      setLastScanned({ nfe: normalized, success: false, message: 'Nota não encontrada neste romaneio' })
-      toast.error(`NF-e não encontrada: ${normalized}`)
+      setDivergencias(prev => prev.includes(normalized) ? prev : [...prev, normalized])
+      setLastScanned({ nfe: normalized, success: false, message: 'Nota não pertence a este romaneio' })
+      toast.error(`NF-e não pertence ao romaneio: ${normalized}`)
       return
     }
 
@@ -93,12 +112,13 @@ export default function BipadorPage() {
 
       if (data && !data.error) {
         audioService.playSuccess()
+        registrarConferencia()
         setLastScanned({ nfe: normalized, success: true, message: 'Conferida com sucesso!' })
         toast.success(`NF-e ${normalized} conferida!`)
-        
+
         // Update local item list
-        setItens(prev => prev.map(i => 
-          i.id === item.id 
+        setItens(prev => prev.map(i =>
+          i.id === item.id
             ? { ...i, bipado_em: new Date().toISOString(), bipado_codigo: value }
             : i
         ))
@@ -110,7 +130,7 @@ export default function BipadorPage() {
       setLastScanned({ nfe: normalized, success: false, message: err.message || 'Erro ao registrar conferência' })
       toast.error('Erro ao bipar item.')
     }
-  }, [id, itens])
+  }, [id, itens, registrarConferencia])
 
   // Manual code submission
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -164,9 +184,9 @@ export default function BipadorPage() {
       try {
         setScannerReady(false)
         await html5Qrcode.start(
-          { facingMode: 'environment' },
+          { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } as MediaTrackConstraints,
           {
-            fps: 12,
+            fps: 15,
             qrbox: (width) => ({ width: Math.min(width * 0.85, 300), height: 110 }),
             aspectRatio: 1.777778
           },
@@ -242,6 +262,10 @@ export default function BipadorPage() {
 
   const bipadosCount = itens.filter(i => i.bipado_em).length
   const totalCount = itens.length
+  const volumesEsperados = itens.reduce((s, i) => s + (i.qtd_volumes || 0), 0)
+  const volumesConfirmados = itens.filter(i => i.bipado_em).reduce((s, i) => s + (i.qtd_volumes || 0), 0)
+  const pendentesItens = itens.filter(i => !i.bipado_em)
+  const temDivergencia = pendentesItens.length > 0 || divergencias.length > 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '32px' }}>
@@ -422,6 +446,35 @@ export default function BipadorPage() {
           </div>
         </div>
       )}
+
+      {/* Resumo de volumes + divergências */}
+      <div className="card no-active" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex-between" style={{ fontSize: 13 }}>
+          <span className="text-muted">Volumes confirmados</span>
+          <strong style={{ color: volumesConfirmados === volumesEsperados && volumesEsperados > 0 ? 'var(--success)' : 'var(--primary)' }}>
+            {volumesConfirmados} / {volumesEsperados}
+          </strong>
+        </div>
+        {temDivergencia && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid var(--danger)', borderRadius: 8, padding: '10px 12px' }}>
+            <div className="flex-row" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--danger)', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+              <AlertTriangle size={15} /> Divergências
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--danger)' }}>
+              {pendentesItens.length} NF-e(s) pendente(s) · {volumesEsperados - volumesConfirmados} volume(s) faltando
+              {divergencias.length > 0 && ` · ${divergencias.length} leitura(s) sem correspondência`}
+            </div>
+            {divergencias.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                {divergencias.map(d => (
+                  <span key={d} style={{ background: '#fde68a', color: '#92400e', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontFamily: 'monospace' }}>{d}</span>
+                ))}
+                <button className="btn btn-secondary" style={{ width: 'auto', height: 24, padding: '0 8px', fontSize: 11 }} onClick={() => setDivergencias([])}>Limpar</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* List of remaining notes to scan */}
       <div className="card no-active">

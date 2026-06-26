@@ -3,7 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioItem, RomaneioStatus, RomaneioHistorico } from '../types'
-import { ArrowLeft, Share2, Camera, Trash2, CheckCircle, Truck, User, CreditCard, PenLine, AlertTriangle, Pencil, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { ArrowLeft, Share2, Camera, Trash2, CheckCircle, Truck, User, CreditCard, PenLine, AlertTriangle, Pencil, ChevronDown, ChevronUp, Clock, PlusCircle, ScanLine } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+
+interface OperadorInfo { criado_por_nome: string | null; conferido_por_nome: string | null; liberado_por_nome: string | null }
 
 // Simple mobile signature pad using standard canvas touch events
 function SignaturePad({ onCapture }: { onCapture: (data: string | null) => void }) {
@@ -133,8 +136,10 @@ function SignaturePad({ onCapture }: { onCapture: (data: string | null) => void 
 export default function RomaneioDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [romaneio, setRomaneio] = useState<Romaneio | null>(null)
   const [itens, setItens] = useState<RomaneioItem[]>([])
+  const [operadores, setOperadores] = useState<OperadorInfo | null>(null)
   const [historico, setHistorico] = useState<RomaneioHistorico[]>([])
   const [showHistorico, setShowHistorico] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -163,10 +168,11 @@ export default function RomaneioDetalhePage() {
     if (!id) return
     setLoading(true)
     try {
-      const [{ data: r, error: errR }, { data: its, error: errI }, { data: hist }] = await Promise.all([
+      const [{ data: r, error: errR }, { data: its, error: errI }, { data: hist }, { data: ops }] = await Promise.all([
         supabase.from('romaneios').select('*').eq('id', id).single(),
         supabase.from('romaneio_itens').select('*').eq('romaneio_id', id).order('inserido_em'),
         supabase.from('romaneio_historico').select('*').eq('romaneio_id', id).order('executado_em', { ascending: false }),
+        supabase.from('vw_romaneio_completo').select('criado_por_nome, conferido_por_nome, liberado_por_nome').eq('romaneio_id', id).single(),
       ])
 
       if (errR) throw errR
@@ -175,6 +181,7 @@ export default function RomaneioDetalhePage() {
       setRomaneio(r)
       setItens(its || [])
       setHistorico(hist || [])
+      setOperadores(ops as OperadorInfo | null)
 
       if (r) {
         setFormColeta({
@@ -397,11 +404,16 @@ export default function RomaneioDetalhePage() {
     if (!confirm(confirmMsg)) return
 
     try {
+      const updatePayload: Record<string, any> = { status }
+      if (status === 'Liberado') {
+        updatePayload.liberado_por = user?.id ?? null
+        updatePayload.liberado_em = new Date().toISOString()
+      }
       const { error } = await supabase
         .from('romaneios')
-        .update({ status })
+        .update(updatePayload)
         .eq('id', id)
-      
+
       if (error) throw error
       toast.success(`Romaneio alterado para ${status}!`)
       load()
@@ -668,6 +680,30 @@ export default function RomaneioDetalhePage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Operadores */}
+      <div className="card no-active">
+        <h3 className="card-title">Operadores</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[
+            { label: 'Criado por', nome: operadores?.criado_por_nome, data: romaneio.data_criacao, icon: <PlusCircle size={15} /> },
+            { label: 'Conferido por', nome: operadores?.conferido_por_nome, data: romaneio.conferido_em, icon: <ScanLine size={15} /> },
+            { label: 'Liberado por', nome: operadores?.liberado_por_nome, data: romaneio.liberado_em, icon: <CheckCircle size={15} /> },
+          ].map(op => (
+            <div key={op.label} className="flex-between" style={{ alignItems: 'flex-start' }}>
+              <span className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>{op.icon} {op.label}</span>
+              <div style={{ textAlign: 'right' }}>
+                <div className="font-bold" style={{ fontSize: 13, color: op.nome ? 'var(--text)' : 'var(--text-muted)' }}>{op.nome || '—'}</div>
+                {op.nome && op.data && (
+                  <div className="text-muted" style={{ fontSize: 11 }}>
+                    {new Date(op.data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Status changes for Masters / Colaboradores */}
