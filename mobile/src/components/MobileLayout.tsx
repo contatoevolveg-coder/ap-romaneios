@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 export default function MobileLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { signOut, perfil, isMaster } = useAuth()
+  const { signOut, perfil } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const [newPassword, setNewPassword] = useState('')

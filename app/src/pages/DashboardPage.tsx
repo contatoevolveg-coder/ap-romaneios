@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioStatus } from '../types'
 import StatusBadge from '../components/StatusBadge'
 import { PlusCircle, Search, Printer, ExternalLink, ChevronLeft, ChevronRight, Clock, AlertCircle, CheckCircle2, XCircle, Trash2 } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
 
 const STATUSES: RomaneioStatus[] = ['Pendente', 'Preenchido', 'Liberado', 'Cancelado']
 const PAGE_SIZE = 20
@@ -19,7 +18,6 @@ interface Metrics {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { isMaster } = useAuth()
   const [romaneios, setRomaneios] = useState<Romaneio[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroStatus, setFiltroStatus] = useState<RomaneioStatus | ''>('')

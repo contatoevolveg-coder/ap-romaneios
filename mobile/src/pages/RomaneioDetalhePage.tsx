@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioItem, RomaneioStatus, RomaneioHistorico } from '../types'
-import { useAuth } from '../context/AuthContext'
 import { ArrowLeft, Share2, Camera, Trash2, CheckCircle, Truck, User, CreditCard, PenLine, AlertTriangle, Pencil, ChevronDown, ChevronUp, Clock } from 'lucide-react'
 
 // Simple mobile signature pad using standard canvas touch events
@@ -134,8 +133,6 @@ function SignaturePad({ onCapture }: { onCapture: (data: string | null) => void 
 export default function RomaneioDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isMaster } = useAuth()
-  
   const [romaneio, setRomaneio] = useState<Romaneio | null>(null)
   const [itens, setItens] = useState<RomaneioItem[]>([])
   const [historico, setHistorico] = useState<RomaneioHistorico[]>([])

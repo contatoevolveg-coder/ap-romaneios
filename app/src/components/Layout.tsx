@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { FileText, PlusCircle, Settings, LogOut, Truck, Building2, Trash2, Sun, Moon } from 'lucide-react'
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { perfil, signOut, isMaster } = useAuth()
+  const { perfil, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 

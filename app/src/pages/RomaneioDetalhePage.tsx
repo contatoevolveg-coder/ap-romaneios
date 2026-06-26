@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import type { Romaneio, RomaneioItem, RomaneioStatus, RomaneioHistorico } from '../types'
-import { useAuth } from '../context/AuthContext'
 import StatusBadge from '../components/StatusBadge'
 import ConfirmModal from '../components/ConfirmModal'
 import { normalizarNfe, mesmaNfe, ehChaveCompleta } from '../lib/nfe'
@@ -120,7 +119,6 @@ function formatExpiry(dateStr: string | null): { label: string; urgent: boolean 
 export default function RomaneioDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isMaster } = useAuth()
   const [romaneio, setRomaneio] = useState<Romaneio | null>(null)
   const [itens, setItens] = useState<RomaneioItem[]>([])
   const [historico, setHistorico] = useState<RomaneioHistorico[]>([])
